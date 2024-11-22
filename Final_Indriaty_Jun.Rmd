@@ -1,0 +1,286 @@
+---
+title: "Final: Forecast Train Occupancy Levels"
+author: "Indriaty, Tutut; Jun, Youngsang"
+date: "December 13, 2024"
+output: 
+  html_document: 
+    theme: readable
+    code_folding: hide
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(knitr)
+library(kableExtra)
+library(mapview)
+library(dplyr)
+library(scales)
+library(viridis)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot)
+library(jtools)     # for regression model plots
+library(broom)
+library(tufte)
+library(rmarkdown)
+library(pander)
+library(classInt)
+library(ggplot2)
+library(units)
+library(leaflet)
+library(lubridate)
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+line_info <- read.csv("./Data/line_info.csv") 
+trains_test <- read.csv("./Data/trains_test.csv") 
+trains_train <- read.csv("./Data/trains_train.csv") 
+stations <- read.csv("./Data/stations.csv")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+# Occupancy distribution
+trains_train %>%
+  count(occupancy) %>%
+  ggplot(aes(x = occupancy, y = n, fill = occupancy)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Distribution of Train Occupancy Levels",
+    x = "Occupancy Level",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Convert date and time to POSIX datetime
+trains_train$datetime <- as.POSIXct(paste(trains_train$date, trains_train$time), format = "%Y-%m-%d %I:%M:%S %p")
+
+# Time trend
+trains_train %>%
+  group_by(hour = hour(datetime)) %>%
+  count(occupancy) %>%
+  ggplot(aes(x = hour, y = n, color = occupancy)) +
+  geom_line() +
+  labs(
+    title = "Train Occupancy Trend by Hour of the Day",
+    x = "Hour of Day",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Convert stations dataset to sf object
+stations_sf <- stations %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+# Create a leaflet map
+leaflet(stations_sf) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    label = ~name,
+    radius = 5,
+    color = "blue",
+    fillOpacity = 0.7
+  ) %>%
+  addLegend("bottomright", colors = "blue", labels = "Stations", title = "Station Map")
+
+```
+
+```{r}
+# Filter high occupancy
+high_occupancy <- trains_train %>%
+  filter(occupancy == "high") %>%
+  count(from, to) %>%
+  arrange(desc(n))
+
+mid_occupancy <- trains_train %>%
+  filter(occupancy == "medium") %>%
+  count(from, to) %>%
+  arrange(desc(n))
+
+low_occupancy <- trains_train %>%
+  filter(occupancy == "low") %>%
+  count(from, to) %>%
+  arrange(desc(n))
+
+# Plot top 10 OD pairs with high occupancy
+high_occupancy %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(paste(from, to, sep = " -> "), n), y = n)) +
+  geom_bar(stat = "identity", fill = "red") +
+  coord_flip() +
+  labs(
+    title = "Top 10 High-Occupancy OD Pairs",
+    x = "OD Pair",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Distribution summary
+summary(high_occupancy$n)
+summary(mid_occupancy$n)
+summary(low_occupancy$n)
+
+# Visualize distribution
+
+ggplot(high_occupancy, aes(x = n)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "white") +
+  labs(
+    title = "Distribution of High Occupancy Counts",
+    x = "Count (n)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Clean up the URI column to extract the station IDs
+stations <- stations %>%
+  mutate(station_id = gsub("http://irail.be/stations/NMBS/", "", URI))
+
+threshold <- 3 # Moderate threshold capturing higher-demand OD pairs
+
+# Filter high-occupancy OD pairs
+high_routes <- high_occupancy %>%
+  filter(n >= threshold) %>%
+  left_join(stations, by = c("from" = "station_id")) %>%
+  rename(from_lon = longitude, from_lat = latitude, from_name = name) %>%
+  left_join(stations, by = c("to" = "station_id")) %>%
+  rename(to_lon = longitude, to_lat = latitude, to_name = name)
+
+mid_routes <- mid_occupancy %>%
+  filter(n >= threshold) %>%
+  left_join(stations, by = c("from" = "station_id")) %>%
+  rename(from_lon = longitude, from_lat = latitude, from_name = name) %>%
+  left_join(stations, by = c("to" = "station_id")) %>%
+  rename(to_lon = longitude, to_lat = latitude, to_name = name)
+
+low_routes <- low_occupancy %>%
+  filter(n >= threshold) %>%
+  left_join(stations, by = c("from" = "station_id")) %>%
+  rename(from_lon = longitude, from_lat = latitude, from_name = name) %>%
+  left_join(stations, by = c("to" = "station_id")) %>%
+  rename(to_lon = longitude, to_lat = latitude, to_name = name)
+
+# Create line data for leaflet polylines
+high_routes <- high_routes %>%
+  mutate(route_label = paste(from_name, "->", to_name))
+
+mid_routes <- mid_routes %>%
+  mutate(route_label = paste(from_name, "->", to_name))
+
+low_routes <- low_routes %>%
+  mutate(route_label = paste(from_name, "->", to_name))
+
+# Step 4: Create line data for leaflet polylines
+routes_lines <- high_routes %>%
+  rowwise() %>%
+  do({
+    data.frame(
+      lng = c(.$from_lon, .$to_lon),
+      lat = c(.$from_lat, .$to_lat),
+      route_label = .$route_label
+    )
+  })
+
+routes_lines_m <- mid_routes %>%
+  rowwise() %>%
+  do({
+    data.frame(
+      lng = c(.$from_lon, .$to_lon),
+      lat = c(.$from_lat, .$to_lat),
+      route_label = .$route_label
+    )
+  })
+
+routes_lines_l <- low_routes %>%
+  rowwise() %>%
+  do({
+    data.frame(
+      lng = c(.$from_lon, .$to_lon),
+      lat = c(.$from_lat, .$to_lat),
+      route_label = .$route_label
+    )
+  })
+
+```
+
+
+
+
+```{r}
+leaflet() %>%
+  addTiles() %>%
+  # Add station markers
+  addCircleMarkers(
+    data = stations_sf,
+    label = ~name,
+    radius = 5,
+    color = "blue",
+    fillOpacity = 0.1
+  ) %>%
+  # Add OD pair lines
+  addPolylines(
+    data = routes_lines,
+    lng = ~lng,
+    lat = ~lat,
+    color = "red",
+    weight = 2,
+    label = ~route_label
+  ) %>%
+  addPolylines(
+    data = routes_lines_m,
+    lng = ~lng,
+    lat = ~lat,
+    color = "orange",
+    weight = 2,
+    label = ~route_label
+  ) %>%
+  addPolylines(
+    data = routes_lines_l,
+    lng = ~lng,
+    lat = ~lat,
+    color = "green",
+    weight = 2,
+    label = ~route_label
+  ) %>%
+  # Add legend
+  addLegend(
+    "bottomright",
+    colors = c("blue", "red", "orange", "green"),
+    labels = c("Stations", "High Occupancy Routes", "Medium Occupancy Routes", "Low Occupancy Routes"),
+    title = "Routes Map"
+  )
+```
+
+
