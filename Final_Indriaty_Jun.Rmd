@@ -40,6 +40,8 @@ library(units)
 library(leaflet)
 library(lubridate)
 
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
 ```
 
 ## R Markdown
@@ -54,6 +56,34 @@ trains_test <- read.csv("./Data/trains_test.csv")
 trains_train <- read.csv("./Data/trains_train.csv") 
 stations <- read.csv("./Data/stations.csv")
 
+# Change station code from numeric to character and rbind train and test sets
+trains_test$from <- as.character(trains_test$from)
+trains_test$from <- paste0("00", trains_test$from) 
+trains_test$to <- as.character(trains_test$to)
+trains_test$to <- paste0("00", trains_test$to) 
+trains_test$occupancy <- NA
+
+# Clean up the URI column to extract the station IDs
+stations <- stations %>%
+  mutate(station_id = gsub("http://irail.be/stations/NMBS/", "", URI))
+
+trains <- rbind(trains_train, trains_test)
+trains$occupancy <- factor(trains$occupancy, levels = c("low", "medium", "high"))
+colorPallete <- c("low" = "green", "medium" = "orange", "high" = "red")
+# Convert date and time to POSIX datetime
+trains$datetime <- as.POSIXct(paste(trains$date, trains$time), format = "%Y-%m-%d %I:%M:%S %p")
+trains$week <- week(trains$datetime)
+trains$dotw <- wday(trains$datetime, label = TRUE)
+
+# Add from and to station names
+trains <- trains %>%
+  left_join(stations, by = c("from" = "station_id")) %>%
+  select(date, time, from, to, vehicle, occupancy, datetime, dotw, from_station = name)
+
+trains <- trains %>%
+  left_join(stations, by = c("to" = "station_id")) %>%
+  select(date, time, from, to, vehicle, occupancy, datetime, dotw, from_station, to_station = name)
+
 ```
 
 ## Including Plots
@@ -62,35 +92,39 @@ You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
 # Occupancy distribution
-trains_train %>%
+trains %>%
+  subset(!is.na(occupancy)) %>%
   count(occupancy) %>%
   ggplot(aes(x = occupancy, y = n, fill = occupancy)) +
   geom_bar(stat = "identity") +
+  scale_fill_manual(values = colorPallete) +
   labs(
-    title = "Distribution of Train Occupancy Levels",
+    title = "Distribution of Train Occupancy Levels (training data)",
     x = "Occupancy Level",
-    y = "Count"
+    y = "Count of Trains"
   ) +
-  theme_minimal()
+  theme_minimal()+
+  theme(legend.position = "none")
 
 ```
 
 ```{r}
-# Convert date and time to POSIX datetime
-trains_train$datetime <- as.POSIXct(paste(trains_train$date, trains_train$time), format = "%Y-%m-%d %I:%M:%S %p")
-
 # Time trend
-trains_train %>%
-  group_by(hour = hour(datetime)) %>%
-  count(occupancy) %>%
-  ggplot(aes(x = hour, y = n, color = occupancy)) +
-  geom_line() +
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(hour = hour(datetime), occupancy) %>%
+  count() %>%
+  ggplot(aes(x = factor(hour), y = n, fill = occupancy)) +  # Use fill for stacking
+  geom_bar(stat = "identity") +  # Stacked bar chart
+  scale_fill_manual(values = colorPallete) +  
   labs(
-    title = "Train Occupancy Trend by Hour of the Day",
+    title = "Train Occupancy Trend by Hour of the Day (training data)",
     x = "Hour of Day",
-    y = "Count"
+    y = "Count of Trains",
+    fill = "Occupancy Level"
   ) +
-  theme_minimal()
+  theme_minimal()+
+  theme(legend.position = "bottom")
 
 ```
 
@@ -114,29 +148,68 @@ leaflet(stations_sf) %>%
 
 ```{r}
 # Filter high occupancy
-high_occupancy <- trains_train %>%
+high_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
   filter(occupancy == "high") %>%
-  count(from, to) %>%
-  arrange(desc(n))
+  count(from_station, to_station) %>%
+  arrange(desc(n)) %>%
+  rename(n_high = n)
 
-mid_occupancy <- trains_train %>%
+mid_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
   filter(occupancy == "medium") %>%
-  count(from, to) %>%
-  arrange(desc(n))
+  count(from_station, to_station) %>%
+  arrange(desc(n))%>%
+  rename(n_mid = n)
 
-low_occupancy <- trains_train %>%
+low_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
   filter(occupancy == "low") %>%
-  count(from, to) %>%
-  arrange(desc(n))
+  count(from_station, to_station) %>%
+  arrange(desc(n))%>%
+  rename(n_low = n)
+
+occupancy <- high_occupancy %>%
+  left_join(mid_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+occupancy <- occupancy %>%
+  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+
+occupancy_data <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  count(from_station, to_station, occupancy) %>%
+  group_by(from_station, to_station) %>%
+  mutate(total = sum(n)) 
+
+occupancy_data %>%
+  filter(!is.na(to_station)) %>%
+   ungroup() %>% 
+  arrange(desc(total)) %>%
+  slice_head(n = 70) %>%  # Top 10 OD pairs
+  ggplot(aes(
+    x = reorder(paste(from_station, to_station, sep = " → "), total),
+    y = n,
+    fill = occupancy
+  )) +
+  geom_bar(stat = "identity") +  # Stacked bar chart
+  coord_flip() +
+  scale_fill_manual(values = colorPallete) +  
+  labs(
+    title = "Top 25 High-Occupancy OD Pairs",
+    subtitle = "Training data, during 3 months",
+    x = "OD Pair",
+    y = "Count",
+    fill = "Occupancy Level"
+  ) +
+  theme_minimal()+
+  theme(legend.position = "bottom")
 
 # Plot top 10 OD pairs with high occupancy
 high_occupancy %>%
+  filter(!is.na(to_station)) %>%
   head(10) %>%
-  ggplot(aes(x = reorder(paste(from, to, sep = " -> "), n), y = n)) +
+  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_high), y = n_high)) +
   geom_bar(stat = "identity", fill = "red") +
   coord_flip() +
   labs(
-    title = "Top 10 High-Occupancy OD Pairs",
+    title = "Top 25 High-Occupancy OD Pairs",
+    subtitle = "Training data, during 3 months",
     x = "OD Pair",
     y = "Count"
   ) +
@@ -145,10 +218,39 @@ high_occupancy %>%
 ```
 
 ```{r}
+# Plot top 10 OD pairs with low occupancy
+low_occupancy %>%
+  filter(!is.na(to_station)) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_low), y = n_low)) +
+  geom_bar(stat = "identity", fill = "green") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Low-Occupancy OD Pairs",
+    subtitle = "Training data, during 3 months",
+    x = "OD Pair",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
 # Distribution summary
 summary(high_occupancy$n)
 summary(mid_occupancy$n)
 summary(low_occupancy$n)
+
+trains <- trains %>%
+  left_join(high_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+trains <- trains %>%
+  left_join(mid_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+trains <- trains %>%
+  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+
+  group_by(from_station, to_station) %>%
+  summarise(n = sum(n)) %>%
+  ungroup()
 
 # Visualize distribution
 
@@ -164,9 +266,7 @@ ggplot(high_occupancy, aes(x = n)) +
 ```
 
 ```{r}
-# Clean up the URI column to extract the station IDs
-stations <- stations %>%
-  mutate(station_id = gsub("http://irail.be/stations/NMBS/", "", URI))
+
 
 threshold <- 3 # Moderate threshold capturing higher-demand OD pairs
 
@@ -281,6 +381,26 @@ leaflet() %>%
     labels = c("Stations", "High Occupancy Routes", "Medium Occupancy Routes", "Low Occupancy Routes"),
     title = "Routes Map"
   )
+```
+
+
+
+
+
+```{r}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(hour = hour(datetime)) %>%
+  count(occupancy) %>%
+  ggplot(aes(x = hour, y = n, color = occupancy)) +
+  geom_line() +
+  scale_color_manual(values = colorPallete) +
+  labs(
+    title = "Train Occupancy Trend by Hour of the Day",
+    x = "Hour of Day",
+    y = "Count"
+  ) +
+  theme_minimal()
 ```
 
 
