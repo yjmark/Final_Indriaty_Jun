@@ -13,6 +13,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#install.packages("hms")
 #install.packages("BelgiumStatistics", repos = "http://www.datatailor.be/rcube", type = "source")
 #install.packages("devtools")
 #library(devtools)
@@ -24,12 +25,16 @@ library(tidycensus)
 library(sf)
 library(knitr)
 library(kableExtra)
+library(caret)
+library(pscl)
 library(mapview)
 library(dplyr)
 library(scales)
 library(viridis)
 library(spdep)
 library(caret)
+library(plotROC)
+library(pROC)
 library(ckanr)
 library(FNN)
 library(grid)
@@ -45,6 +50,7 @@ library(ggplot2)
 library(units)
 library(leaflet)
 library(lubridate)
+library(hms)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -495,13 +501,78 @@ trains %>%
   geom_line(size = 1) +
   scale_color_manual(values = colorPallete) +  
   labs(
-    title = "Train Occupancy Trend by Day (training data)",
+    title = "Train Occupancy Trend by Day",
             subtitle = "Training data, July - Oct 2016",
     x = "Day",
     y = "Count of Trains",
     color = "Occupancy Level"
   ) +
   theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+trains <- trains %>%
+  mutate(date_numeric = as.numeric(as.Date(date))) %>%
+  mutate(time_numeric = as.numeric(as_hms(time))) %>%
+  mutate(occupancy_numeric = case_when(
+    occupancy == "low" ~ 1,
+    occupancy == "high" ~ 0,
+    TRUE ~ NA
+  ))
+
+# Split trains into trains_train and trains_test  
+trains_train <- trains %>% filter(!is.na(occupancy)) 
+trains_test <- trains %>% filter(is.na(occupancy))
+
+# Split trains_train into trains_trainTrain and trains_trainTest
+set.seed(3456)
+trainIndex <- createDataPartition(trains_train$occupancy, p = .65, 
+                                  list = FALSE,
+                                  times = 1)
+trains_trainTrain <- trains_train[ trainIndex,]
+trains_trainTest  <- trains_train[-trainIndex,]
+
+reg <- glm(occupancy ~ ., data = 
+                    trains_trainTrain %>% dplyr::select(date_numeric, time_numeric, dotw, occupancy),
+                family = "binomial"(link = "logit"))
+
+a<-summary(reg) # / AIC: 1,930
+```
+
+```{r}
+pseudo_r2 <- pR2(reg)
+pseudo_r2_df <- as.data.frame(t(pseudo_r2))
+kable(pseudo_r2_df, "html", caption = "Pseudo-R² Values for `train logistic model`") %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+```{r}
+testProbs <- data.frame(Outcome = as.factor(trains_trainTest$occupancy_numeric),
+                        Probs = predict(reg, trains_trainTest, type= "response"))
+#testProbs$Probs_p <- case_when(
+#  testProbs$Probs >= 0.5 ~ 1,
+#  testProbs$Probs < 0.5 ~ 0,
+#  TRUE ~ NA
+#)
+ggplot(testProbs, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  xlim(0,1)+
+  scale_fill_manual(values = c("#a1b7b8", "#df543b")) +
+  labs(x = "Prediction of Occupancy", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none")
+```
+
+```{r}
+ggplot() +
+  geom_roc(data= testProbs, aes(d = as.numeric(Outcome), m = Probs), n.cuts = 50, labels = FALSE) +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  labs(title = "ROC Curve ",
+       subtitle = "trains_trainTest that is split of trains_train") +
   theme(legend.position = "bottom")
 ```
 
