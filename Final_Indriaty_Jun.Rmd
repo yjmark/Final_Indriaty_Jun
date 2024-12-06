@@ -13,6 +13,12 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#install.packages("BelgiumStatistics", repos = "http://www.datatailor.be/rcube", type = "source")
+#install.packages("devtools")
+#library(devtools)
+#devtools::install_github("jwijffels/BelgiumMaps.Admin", build_vignettes = TRUE)
+#devtools::install_github("jwijffels/StatisticsBelgium", build_vignettes = TRUE)
+#library(BelgiumStatistics)
 library(tidyverse)
 library(tidycensus)
 library(sf)
@@ -55,6 +61,8 @@ line_info <- read.csv("./Data/line_info.csv")
 trains_test <- read.csv("./Data/trains_test.csv") 
 trains_train <- read.csv("./Data/trains_train.csv") 
 stations <- read.csv("./Data/stations.csv")
+stations <- stations %>%
+  filter(country.code=="be")
 
 # Change station code from numeric to character and rbind train and test sets
 trains_test$from <- as.character(trains_test$from)
@@ -69,11 +77,14 @@ stations <- stations %>%
 
 trains <- rbind(trains_train, trains_test)
 trains$occupancy <- factor(trains$occupancy, levels = c("low", "medium", "high"))
-colorPallete <- c("low" = "green", "medium" = "orange", "high" = "red")
+colorPallete <- c("low" = "#df543b", "medium" = "#a1b7b8", "high" = "#a1b7b8")
 # Convert date and time to POSIX datetime
 trains$datetime <- as.POSIXct(paste(trains$date, trains$time), format = "%Y-%m-%d %I:%M:%S %p")
 trains$week <- week(trains$datetime)
 trains$dotw <- wday(trains$datetime, label = TRUE)
+trains$occupancy_original <- trains$occupancy
+trains <- trains %>%
+  mutate(occupancy = recode(occupancy, "medium" = "high"))
 
 # Add from and to station names
 trains <- trains %>%
@@ -240,7 +251,7 @@ occupancy_data %>%
   scale_fill_manual(values = colorPallete) +  
   labs(
     title = "Top 25 Count of Trains OD Pairs",
-    subtitle = "Training data, during 3 months",
+    subtitle = "Training data, July - Oct 2016",
     x = "OD Pair",
     y = "Count of Trains",
     fill = "Occupancy Level"
@@ -253,11 +264,11 @@ high_occupancy %>%
   filter(!is.na(to_station)) %>%
   head(10) %>%
   ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_high), y = n_high)) +
-  geom_bar(stat = "identity", fill = "red") +
+  geom_bar(stat = "identity", fill = "#a1b7b8") +
   coord_flip() +
   labs(
     title = "Top 10 High-Occupancy OD Pairs",
-    subtitle = "Training data, during 3 months",
+    subtitle = "Training data, July - Oct 2016",
     x = "OD Pair",
     y = "Count"
   ) +
@@ -271,11 +282,11 @@ low_occupancy %>%
   filter(!is.na(to_station)) %>%
   head(10) %>%
   ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_low), y = n_low)) +
-  geom_bar(stat = "identity", fill = "green") +
+  geom_bar(stat = "identity", fill = "#df543b") +
   coord_flip() +
   labs(
     title = "Top 10 Low-Occupancy OD Pairs",
-    subtitle = "Training data, during 3 months",
+    subtitle = "Training data, July - Oct 2016",
     x = "OD Pair",
     y = "Count"
   ) +
@@ -399,35 +410,27 @@ leaflet() %>%
   addCircleMarkers(
     data = stations_sf,
     label = ~name,
-    radius = 5,
-    color = "blue",
+    radius = 3,
+    color = "black",
     fillOpacity = 0.1
   ) %>%
   # Add OD pair lines
-  addPolylines(
-    data = routes_lines_l,
-    lng = ~lng,
-    lat = ~lat,
-    color = "green",
-    opacity = 0.1,
-    weight = 2,
-    label = ~route_label
-  ) %>%
-  addPolylines(
-    data = routes_lines_m,
-    lng = ~lng,
-    lat = ~lat,
-    color = "orange",
-    opacity = 0.2,
-    weight = 2,
-    label = ~route_label
-  ) %>%
+
   addPolylines(
     data = routes_lines,
     lng = ~lng,
     lat = ~lat,
-    color = "red",
+    color = "#a1b7b8",
     opacity = 0.3,
+    weight = 2,
+    label = ~route_label
+  ) %>%
+    addPolylines(
+    data = routes_lines_l,
+    lng = ~lng,
+    lat = ~lat,
+    color = "#df543b",
+    opacity = 0.1,
     weight = 2,
     label = ~route_label
   ) %>%
@@ -436,8 +439,8 @@ leaflet() %>%
   # Add legend
   addLegend(
     "bottomright",
-    colors = c("blue", "red", "orange", "green"),
-    labels = c("Stations", "High Occupancy Routes", "Medium Occupancy Routes", "Low Occupancy Routes"),
+    colors = c("black", "#a1b7b8",  "#df543b"),
+    labels = c("Stations", "High Occupancy Routes", "Low Occupancy Routes"),
     title = "Routes Map"
   )
 ```
@@ -456,12 +459,15 @@ trains %>%
   scale_color_manual(values = colorPallete) +
   labs(
     title = "Train Occupancy Trend by Hour of the Day",
+        subtitle = "Training data, July - Oct 2016",
     x = "Hour of Day",
     y = "Count"
   ) +
   theme_minimal()+
   theme(legend.position = "bottom")
 ```
+
+
 ```{r}
 trains %>%
   subset(!is.na(occupancy)) %>%
@@ -472,7 +478,8 @@ trains %>%
   scale_color_manual(values = colorPallete) +
   labs(
     title = "Train Occupancy Trend by Date",
-    x = "Hour of Day",
+        subtitle = "Training data, July - Oct 2016",
+    x = "Date",
     y = "Count"
   ) +
   theme_minimal()+
@@ -481,17 +488,20 @@ trains %>%
 ```{r}
 trains %>%
   subset(!is.na(occupancy)) %>%
-  group_by(datetime) %>%
-  count(occupancy) %>%
-  ggplot(aes(x = datetime, y = n, color = occupancy)) +
-  geom_line() +
-  scale_color_manual(values = colorPallete) +
+  mutate(date = as.Date(datetime)) %>%  # 날짜만 추출
+  group_by(dotw, occupancy) %>%
+  summarise(n = n(), .groups = "drop") %>%  # Use summarise instead of count
+  ggplot(aes(x = dotw, y = n, color = occupancy, group = occupancy)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colorPallete) +  
   labs(
-    title = "Train Occupancy Trend by Hour of the Day",
-    x = "Hour of Day",
-    y = "Count"
+    title = "Train Occupancy Trend by Day (training data)",
+            subtitle = "Training data, July - Oct 2016",
+    x = "Day",
+    y = "Count of Trains",
+    color = "Occupancy Level"
   ) +
-  theme_minimal()+
+  theme_minimal() +
   theme(legend.position = "bottom")
 ```
 
