@@ -15,9 +15,12 @@ editor_options:
 
 ## Background
 
-NMBS/SNCB trains, which is the biggest railway serving the country of Belgium, needs to postpone the expansion because of lack of train personnel staff. Also, the raise on energy cost increase the operating cost. Meanwhile, the company still face revenue loss because of low passengers on some routes.
+NMBS/SNCB trains, which is the biggest railway serving the country of Belgium, needs to postpone the expansion because of lack of train personnel staff.
+Also, the raise on energy cost increase the operating cost.
+Meanwhile, the company still face revenue loss because of low passengers on some routes.
 
-With these problems, the company can strategically plan their policies on optimizing resource allocation, enhancing operational cost efficiency, and also increasing revenue especially on their low occupancy routes. But how can they do that?
+With these problems, the company can strategically plan their policies on optimizing resource allocation, enhancing operational cost efficiency, and also increasing revenue especially on their low occupancy routes.
+But how can they do that?
 
 ## Use Case
 
@@ -25,14 +28,13 @@ This project is aim to predict occupancy levels (categorized by high and low) fo
 
 e.g. extend/merge train routes, minimize vacant trains or mitigate crowdedness of trains etc.
 
-Question: 
+Question:
 
 What is the level of occupancy of a certain OD pair at a specific time?
 
 What options do planners have to manage this demand?
 
 e.g. decrease amount of trains, merge of two similar routes, or decrease the frequent of the route to change low routes to medium, and of increase amount of trains, separate two similar routes, or increase the frequent of the route to change high routes to medium.
-
 
 We build this web-based application, called Re-Train that predict the occupancy rate across the routes with three stages, first analysing and visualizing past data, creating long-term or short-term predictions based on the users’ need, and last, showcasing potential benefits and risk on the predictions.
 
@@ -52,9 +54,6 @@ How it works?
 We use Kaggle train occupancy level data on 2016 which have these variables that potentially correlate with the occupancy rate.
 And add some external datas like weather, demographic, and fare, and then predict using logistic regression.
 
-Taking a look at the data, we can see a clear distribution between high and low occupancy where: Low occupancy routes are most prominent during off-peak hours, on weekends, and scattered throughout the date but peak on early July-August.
-Meanwhile high occupancy routes are strong during commuter hour, on weekdays, and spikes on mid-late October.
-
 From this, we can see high-demand OD pairs are consistent, while low-demand OD pairs keep on changing.
 High occupancy is concentrated on major intercity and commuter routes.
 Meanwhile, smaller or regional routes shows reduced demand.
@@ -69,7 +68,7 @@ By correctly predicting low-occupancy routes, we can achieve significant cost sa
 However, misclassifying high-occupancy as low can lead to revenue loss, overcrowding, and passenger dissatisfaction.
 Striking the right balance in predictions ensures optimized resource allocation and supports a sustainable and efficient rail network.
 
-# 2. Data Setup and Wrangling
+# 2. Data Setup
 
 ## Load Libraries
 
@@ -137,35 +136,49 @@ plotTheme <- theme(
 
 ## Load Data
 
-We loaded three default data (1)-(3) of NMBS trains, stations, and lines from Kaggle, and four additional data (4)-(7) of Belgium statistical tracts, Belgium population data, zone station data, and weather data from RIEM package. 
+We loaded three default data (1)-(3) of NMBS trains, stations, and lines from Kaggle, and four additional data (4)-(7) of Belgium statistical tracts, Belgium population data, zone station data, and weather data from RIEM package.
+[1]
 
-(1) Trains dataset
+(1) Trains dataset (`trains`, `trains_test`, `trains_train`, `trains_trainTest`, `trains_trarinTrain`)
 
-The training dataset of trains provides date, time, origin station code (`from`), destination station code (`to`), vehicle ID, and occupancy information shown at three different levels (low, medium, high), from July 27, 2016 to October 29, 2016. The test dataset of trains have the same columns as the training dataset, but from October 29, 2016 to December 19, 2016. The test dataset does not have occupancy level information.
+The training dataset of trains provides date, time, origin station code (`from`), destination station code (`to`), vehicle ID, and occupancy information shown at three different levels (low, medium, high), from July 27, 2016 to October 29, 2016.
+The test dataset of trains have the same columns as the training dataset, but from October 29, 2016 to December 19, 2016.
+The test dataset does not have occupancy level information.
 
-(2) Stations dataset
+(2) Stations dataset (`stations`)
 
-The stations dataset contains names, locations (longitude and latitude), and average stop times (`avg_stop_times`). Since NMBS operates trains in Belgium as well as France and the Netherlands, we filtered the dataset to exclude non-Belgian stations (e.g. those in the Netherlands, France, Luxembourg etc.). Additionally, we created columns to calculate the distance between origin and destination stations, the distance from Belgium to the origin and destination stations, and the bearing between origin and destination stations. 
+The stations dataset contains names, locations (longitude and latitude), and average stop times (`avg_stop_times`).
+Since NMBS operates trains in Belgium as well as France and the Netherlands, we filtered the dataset to exclude non-Belgian stations (e.g. those in the Netherlands, France, Luxembourg etc.).
+Additionally, we created columns to calculate the distance between origin and destination stations, the distance from Belgium to the origin and destination stations, and the bearing between origin and destination stations.
 
-(3) Lines dataset
+(3) Lines dataset (`line_info`)
 
-The lines dataset includes information about the vehicle ID, vehicle type, the number of stops, and stopping station IDs. Since the information in the train dataset is insufficient, we did not use stopping station IDs in this analysis.
+The lines dataset includes information about the vehicle ID, vehicle type, the number of stops, and stopping station IDs.
+Since the information in the train dataset is insufficient, we did not use stopping station IDs in this analysis.
 
-(4) Belgium statistical tracts dataset
+(4) Belgium statistical tracts dataset (`statBel` and `statBel_muni`)
 
-The Belgium statistical tracts dataset contains the geometries of each tract. We gained this dataset from Statbel, the Belgian statistical office. We joined this dataset to calculate the population of Belgium by municipality and intersect this dataset to the stations and the weather stations.
+The Belgium statistical tracts dataset contains the geometries of each tract.
+We gained this dataset from Statbel, the Belgian statistical office.
+We joined this dataset to calculate the population of Belgium by municipality and intersect this dataset to the stations and the weather stations.
 
-(5) Belgium population dataset
+(5) Belgium population dataset (`popBel`)
 
-We assumed that the population of the origin and destination regions would affect the occupancy level of the trains. We used the Belgium population dataset to calculate the population of Belgium by municipality and joined this dataset to the statistical tracts dataset.
+We assumed that the population of the origin and destination regions would affect the occupancy level of the trains.
+We used the Belgium population dataset to calculate the population of Belgium by municipality and joined this dataset to the statistical tracts dataset.
 
-(6) Zone station dataset
+(6) Zone station dataset (`stationZone`)
 
-The zone station dataset contains the zone information of each train station. At first, we assumed the fare information may be one of the independent variable so we added this information to the stations dataset to calculate the fare. However, we could not find the opened fare information of NMBS, so we did not use this information in the analysis.
+The zone station dataset contains the zone information of each train station.
+At first, we assumed the fare information may be one of the independent variable so we added this information to the stations dataset to calculate the fare.
+However, we could not find the opened fare information of NMBS, so we did not use this information in the analysis.
 
-(7) Weather dataset
+(7) Weather dataset (`weather_belgium`, `weatherstations_with_muni`)
 
-We assumed that the weather conditions of the origin and destination regions at specific dates and times would affect the occupancy level of the trains. The dataset is from RIEM, which is developed by Iowa Environment Mesonet. Since RIEM provides global coverage, we were able to get temperature, wind, and relative humidity data from 12 weather stations located in Belgium airports. Since the percipitation data of Belgium was unavailable in RIEM, we used relative humidity as a substitute variable to reflect general patterns related to precipitation.
+We assumed that the weather conditions of the origin and destination regions at specific dates and times would affect the occupancy level of the trains.
+The dataset is from RIEM, which is developed by Iowa Environment Mesonet.
+Since RIEM provides global coverage, we were able to get temperature, wind, and relative humidity data from 12 weather stations located in Belgium airports.
+Since the percipitation data of Belgium was unavailable in RIEM, we used relative humidity as a substitute variable to reflect general patterns related to precipitation.
 
 ```{r loaddata, warning = FALSE, message = FALSE, results = "hide"}
 # Load (1) trains, (2) stations, and (3) SNCB lines data
@@ -191,7 +204,13 @@ stations <- left_join(stations, stationZone, by = c("name" = "Station")) # Add z
 statBel_muni <- statBel %>%
   group_by(cd_dstr_refnis) %>%
   summarize(geometry = st_union(geometry)) %>%
-  ungroup()
+  ungroup() 
+
+statBel_muni <- statBel_muni %>%
+  left_join(
+    statBel %>% st_drop_geometry() %>% select(cd_dstr_refnis, tx_adm_dstr_descr_fr) %>% distinct(),
+    by = "cd_dstr_refnis"
+  )
 
 popBel_muni <- popBel %>%
   mutate(CD_REFNIS_N = as.character(as.numeric(substr(CD_REFNIS, 1, 2)) * 1000)) %>%
@@ -212,8 +231,109 @@ stations_sf <- stations %>%
 
 ## Data Wrangling
 
-We transformed raw data into a more usable format for analysis through the following processs. First, we combined the training and test datasets to manipulate the entire dataset at once. After we finished the data wrangling, we separated them again into training and test sets.
-Second, we recoded occupancy data from three-level (Low-medium-high) to two-levels (Low-high). 
+We transformed raw data into a more usable format for analysis through the following processs.
+First, we combined the training and test datasets, which were initially separated, to manipulate the entire dataset at once.
+After we finished the data wrangling, we split them back into training and test sets.
+
+Second, we recoded occupancy data from three levels (low, medium, high) to two levels (low, high).
+This was done to focus more on analyzing trends in low occupancy data, and to simplify regression analysis process by using a binomial model instead of a multinomial one.
+
+<Three-level classification of train occupancy>[1]
+
+1. Low: There are plenty of seats left.
+
+2. Medium: It is hard to find a seat and it is difficult to sit together.
+
+3. High: There are no seats left and people have to stand up
+
+<Two-level classification of train occupancy>
+
+1. Low: There are plenty of seats left.
+
+2. High: It is hard to find a seat and it is difficult to sit together or there are no seats left and people have to stand up.
+
+Lastly, we created a panel dataset called `trains` by performing a left_join of internal and external datasets.
+This incorporated both dependent and independent variables of the following into one table.
+The detailed is as shown in Table 1.
+
+-   Primary internal data: `datetime` (date and time, dbl), `week` (week number, chr), `dotw` (day of week), `interval60` (hourly interval), `from_x` (origin station information, e.g. name, latitude, longitude etc.), `to_x` (destination station information, e.g. name, latitude, longitude etc.), `vehicle` (train number), `occupancy_original` (occupancy of three levels), `occupancy` (occupancy of two levels), `avg_stop_times` (average stop times of each line), `n_stops` (number of stops of each line)
+
+-   Primary external data:
+
+(1) Administration sector: `cd_dstr_refnis` (borough number), `tx_adm_dstr_descr_fr` (name of borough that origin and destination stations are located)
+
+(2) Population: `POPULATION` (population of borough that origin and destination stations are located)
+
+(3) Weather: `temp`, `humid`, `wind` (temperature, humidity, and wind speed of each hour of day at origin and destination stations), `nearest_weather_station` (the nearest weather station location of origin and destination stations)
+
+(4) Event: `event` (weekend and holiday information) Event: 0 = Weekday, 1 = Weekend or holiday
+
+```{r dataset_description, echo = FALSE, warning = FALSE, message = FALSE}
+# Create a data frame for the table
+dataset_description <- data.frame(
+  Variable = c(
+    "`from/to`", "`vehicle`", "`occupancy_original`", "`occupancy`", "`interval60`", 
+    "`week`", "`datetime`", "`dotw`", "`from/to_station`", "`from/to_avg_stop_times`", 
+    "`from/to_lng`", "`from/to_lat`", "`from/to_pop`", "`from/to_cd_dstr_refnis`", 
+    "`from/to_tx_adm_dstr_descr_fr`", "`from/to_nearest_weatherstation`", 
+    "`from/to_temp`", "`from/to_humid`", "`from/to_wind`", "`vehicle_type`", 
+    "`nr_of_stops`", "`event`", "`n_high`", "`n_low`", "`dist_from_O_to_Brussels`", 
+    "`dist_from_D_to_Brussels`", "`dist_from_O_to_D`", "`bearing_from_O_to_D`", 
+    "`bearing_from_O_to_D_cat`", "`time_cat`", "`date_numeric`", "`time_numeric`", 
+    "`occupancy_numeric`"
+  ),
+  Type = c(
+    "<chr>", "<chr>", "<chr>", "<chr>", "<dttm>", 
+    "<dbl>", "<dttm>", "<ord>", "<chr>", "<dbl>", 
+    "<dbl>", "<dbl>", "<dbl>", "<chr>", 
+    "<chr>", "<chr>", 
+    "<dbl>", "<dbl>", "<dbl>", "<chr>", 
+    "<int>", "<dbl>", "<int>", "<int>", "<dbl>", 
+    "<dbl>", "<dbl>", "<dbl>", 
+    "<chr>", "<fct>", "<dbl>", "<dbl>", 
+    "<dbl>"
+  ),
+  Description = c(
+    "9-digit ID of each origin and destination station", 
+    "ID of train", 
+    "Train occupancy of three levels (low, medium, high)", 
+    "Train occupancy of two levels (low, high)", 
+    "Hourly interval", 
+    "Week number", 
+    "Date and time", 
+    "Day of week", 
+    "Name of each origin and destination station", 
+    "The average number of vehicles stopping each day in this station", 
+    "Longitude of each origin and destination station", 
+    "Latitude of each origin and destination station", 
+    "Population of each origin and destination station", 
+    "5-digit borough number that each origin and destination station is located", 
+    "Name of a borough that each origin and destination station is located", 
+    "4-letter code of the nearest weather station from each origin and destination train station", 
+    "Temperature of each origin and destination train station in Celsius", 
+    "Relative humidity of each origin and destination train station in percentage", 
+    "Wind of each origin and destination train station in meters per second", 
+    "4-letter code of vehicle type", 
+    "Number of stops of this O-D pair", 
+    "Weekend and holiday information (0 = Weekday, 1 = Weekend or holiday)", 
+    "Frequency of high occupancy of this O-D pair during Jul-Oct 2016", 
+    "Frequency of low occupancy of this O-D pair during Jul-Oct 2016", 
+    "Distance from an origin station to Brussels in kilometers", 
+    "Distance from a destination station to Brussels in kilometers", 
+    "Distance between an origin and a destination station in kilometers", 
+    "Bearing angle from an origin to a destination station", 
+    "Categorized bearing angle (N, S, E, W, NE, NW, SE, SW)", 
+    "Categorized time by commute, morning, noon, evening, midnight", 
+    "Numerized date", 
+    "Numerized time", 
+    "Numerized occupancy (0 = high, 1 = low)"
+  )
+)
+
+# Create the kable table
+kable(dataset_description, "html", col.names = c("Variable", "Type", "Description"), caption = "Table 1. Variable Type and Description") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
 
 ```{r setup_panel1, warning = FALSE, message = FALSE}
 # Change station code from numeric to character and rbind train and test sets
@@ -251,215 +371,69 @@ trains <- trains %>%
   mutate(week=week(interval60)) 
 ```
 
-# 3. Exploratory Data Analysis
+### (1) Population and Statistical tract data
 
-## Distribution of Train Occupancy Levels
+As of 2016, the population of Belgium is 11,267,910. In Belgium, 43 municipalities (`CD_DSTR_REFNIS`), 589 Reference from National Institute of Statistics Code (`CD_REFNIS`), and 2,882 statistical sectors (`CD_SECTOR`). We performed a left join to add the municipality where the origin and destination stations are located and their population, to the `trains` dataset.
 
-```{r occ_distribution, warning = FALSE, message = FALSE}
-# Occupancy distribution
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  count(occupancy) %>%
-  ggplot(aes(x = occupancy, y = n, fill = occupancy)) +
-  geom_bar(stat = "identity") +
-  scale_fill_manual(values = colorPallete) +
-  labs(
-    title = "Distribution of Train Occupancy Levels",
-    subtitle = "Training data, July - Oct 2016",
-    x = "Occupancy Level",
-    y = "Count of Trains"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "none")
+```{r}
+statBel_muni <- statBel_muni %>%
+  mutate(tx_adm_dstr_descr_fr_appr = str_extract(tx_adm_dstr_descr_fr, 
+                                  "(?<=Arrondissement d’|Arrondissement de )\\b[\\wÀ-ÿ\\s-]+\\b")) 
 
-```
-
-## Distribution of Train Occupancy Levels by Time Trend
-
-Train Occupancy Trend by Hour of the Day
-
-```{r occ_trend1, warning = FALSE, message = FALSE}
-# Time trend
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  group_by(hour = hour(datetime), occupancy) %>%
-  count() %>%
-  ggplot(aes(x = factor(hour), y = n, fill = occupancy)) +  
-  geom_bar(stat = "identity") +  
-  scale_fill_manual(values = colorPallete) +  
-  labs(
-    title = "Train Occupancy Trend by Hour of the Day",
-    subtitle = "Training data, July - Oct 2016",
-    x = "Hour of Day",
-    y = "Count of Trains",
-    fill = "Occupancy Level"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-
-```
-
-```{r occ_trend2, warning = FALSE, message = FALSE}
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  group_by(hour = hour(datetime)) %>%
-  count(occupancy) %>%
-  ggplot(aes(x = hour, y = n, color = occupancy)) +
-  geom_line() +
-  scale_color_manual(values = colorPallete) +
-  labs(
-    title = "Train Occupancy Trend by Hour of the Day",
-        subtitle = "Training data, July - Oct 2016",
-    x = "Hour of Day",
-    y = "Count"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-```
-
-Train Occupancy Trend by Day of Week
-
-```{r occ_trend3, warning = FALSE, message = FALSE}
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  mutate(date = as.Date(datetime)) %>%  
-  group_by(dotw, hour = hour(datetime), occupancy) %>%
-  count() %>%
-  ggplot(aes(x = dotw, y = n, fill=occupancy)) +  # Use color for lines
-  geom_bar(stat = "identity") +  # Stacked bar chart
-  scale_fill_manual(values = colorPallete) +  
-  labs(
-    title = "Train Occupancy Trend by Day of Week",
-    subtitle = "Training data, July - Oct 2016",
-    x = "Day",
-    y = "Count of Trains",
-    color = "Occupancy Level"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-```
-
-```{r occ_trend4, warning = FALSE, message = FALSE}
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  mutate(date = as.Date(datetime)) %>%  
-  group_by(dotw, occupancy) %>%
-  summarise(n = n(), .groups = "drop") %>%  # Use summarise instead of count
-  ggplot(aes(x = dotw, y = n, color = occupancy, group = occupancy)) +
-  geom_line(size = 1) +
-  scale_color_manual(values = colorPallete) +  
-  labs(
-    title = "Train Occupancy Trend by Day of Week",
-            subtitle = "Training data, July - Oct 2016",
-    x = "Day",
-    y = "Count of Trains",
-    color = "Occupancy Level"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-```
-
-Train Occupancy Trend by Date
-
-```{r occ_trend5, warning = FALSE, message = FALSE}
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  mutate(date = as.Date(datetime)) %>%  
-  group_by(date, hour = hour(datetime), occupancy) %>%
-  count() %>%
-  ggplot(aes(x = date, y = n, fill=occupancy)) +  # Use color for lines
-  geom_bar(stat = "identity") +  # Stacked bar chart
-  scale_fill_manual(values = colorPallete) +  
-  labs(
-    title = "Train Occupancy Trend by Date",
-    subtitle = "Training data, July - Oct 2016",
-    x = "Date and Hour",
-    y = "Count of Trains",
-    color = "Occupancy Level"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-```
-
-```{r occ_trend6, warning = FALSE, message = FALSE}
-trains %>%
-  subset(!is.na(occupancy)) %>%
-  group_by(date = date(datetime)) %>%
-  count(occupancy) %>%
-  ggplot(aes(x = date, y = n, color = occupancy)) +
-  geom_line() +
-  scale_color_manual(values = colorPallete) +
-  labs(
-    title = "Train Occupancy Trend by Date",
-        subtitle = "Training data, July - Oct 2016",
-    x = "Date",
-    y = "Count"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
-```
-
-## Location of Stations
-
-```{r station_map, warning = FALSE, message = FALSE}
-# Create a leaflet map
-leaflet(stations_sf) %>%
-  addTiles() %>%
-  addCircleMarkers(
-    label = ~name,
-    radius = 5,
-    color = "blue",
-    fillOpacity = 0.7
-  ) %>%
-  addLegend("bottomright", colors = "blue", labels = "Stations", title = "Station Map")
-
-```
-
-Location of Stations by Zone
-
-```{r station_map_zone, warning = FALSE, message = FALSE}
 ggplot()+
-  geom_sf(data=statBel_muni %>% st_transform(4326), aes(fill=POPULATION), color="#333")+
-  geom_sf(data=stations_sf , aes(color=Zone), size=1)+
-   geom_sf_text(data = stations_sf ,
-               aes(label = name),  
-               size = 3, color = "#fff")+
+  geom_sf(data = statBel_muni, aes(fill = POPULATION), color = "white")+
+  geom_sf_text(
+    data = statBel_muni, 
+    aes(label = tx_adm_dstr_descr_fr_appr),  
+    size = 3,  
+    color = "white"  
+  ) +
+    labs(
+    title = "Population of Belgium by Municipality",
+    subtitle = "2016",
+    caption="Source: StatBel"
+  ) +
   theme_void()+plotTheme+
   theme(legend.position = "bottom")
 ```
 
-## Weather data
-
-```{r setup_panel2, warning = FALSE, message = FALSE, results = "hide"}
+```{r}
 stations_with_pop <- st_join(stations_sf, statBel_muni) %>%
   st_drop_geometry()
 stations_with_pop <- stations_with_pop %>%
   bind_cols(as.data.frame(st_coordinates(stations_sf))) %>%
   rename(longitude = X, latitude = Y)
 
-# Add from and to station names and left join population 
+# Add from and to station names and left join population into trains data
 trains <- trains %>%
   left_join(stations_with_pop, by = c("from" = "station_id")) 
 trains <- trains %>%
-  select(date, time, from, to, vehicle, occupancy_original, occupancy, interval60, week, datetime, dotw, name, avg_stop_times, longitude, latitude, cd_dstr_refnis, POPULATION) %>%
+  select(date, time, from, to, vehicle, occupancy_original, occupancy, interval60, week, datetime, dotw, name, avg_stop_times, longitude, latitude, cd_dstr_refnis, tx_adm_dstr_descr_fr, POPULATION) %>%
   rename(from_station = name) %>%
   rename(from_avg_stop_times = avg_stop_times) %>%
   rename(from_lng = longitude) %>%
   rename(from_lat = latitude) %>%
   rename(from_pop = POPULATION) %>%
-  rename(from_cd_dstr_refnis = cd_dstr_refnis)
+  rename(from_cd_dstr_refnis = cd_dstr_refnis) %>%
+  rename(from_tx_adm_dstr_descr_fr = tx_adm_dstr_descr_fr)
 
 trains <- trains %>%
   left_join(stations_with_pop, by = c("to" = "station_id")) 
 trains <- trains %>%
-  select(date, time, from, to, vehicle, occupancy_original, occupancy, interval60, week, datetime, dotw, from_station, from_avg_stop_times, from_lng, from_lat, from_pop, from_cd_dstr_refnis,  name, avg_stop_times,  longitude, latitude, cd_dstr_refnis,POPULATION) %>%
+  select(date, time, from, to, vehicle, occupancy_original, occupancy, interval60, week, datetime, dotw, from_station, from_avg_stop_times, from_lng, from_lat, from_pop, from_cd_dstr_refnis, from_tx_adm_dstr_descr_fr, name, avg_stop_times,  longitude, latitude, cd_dstr_refnis,tx_adm_dstr_descr_fr, POPULATION) %>%
   rename(to_station = name) %>%
   rename(to_avg_stop_times = avg_stop_times) %>%
   rename(to_lng = longitude) %>%
   rename(to_lat = latitude) %>%
   rename(to_pop = POPULATION) %>%
-  rename(to_cd_dstr_refnis = cd_dstr_refnis)
+  rename(to_cd_dstr_refnis = cd_dstr_refnis)%>%
+  rename(to_tx_adm_dstr_descr_fr = tx_adm_dstr_descr_fr)
+```
 
+
+### (2) Weather data
+
+```{r}
 # Load weather data
 weatherstations_sf <- riem_stations(network = "BE__ASOS") %>% # BE__ASOS = Belgium ASOS (Weather Stations)
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
@@ -490,6 +464,7 @@ weather_belgium <- weather_belgium %>%
 # Convert weather dataset to sf object
 weatherstations_with_muni <- st_join(weatherstations_sf, statBel_muni) %>%
   st_drop_geometry()
+
 # Find nearest weather station for municipalities without a station
 statBel_muni <- statBel_muni %>%
   mutate(
@@ -506,7 +481,7 @@ statBel_muni <- statBel_muni %>%
   )
 statBel_muni <- statBel_muni %>% select(-weatherstation_within)
 
-# left join weather station data
+# left join weather station data into trains data
 trains <- trains %>%
   left_join(statBel_muni, by=c("from_cd_dstr_refnis" = "cd_dstr_refnis")) %>%
   rename(from_nearest_weatherstation = nearest_weatherstation) %>%
@@ -517,7 +492,7 @@ trains <- trains %>%
   rename(to_nearest_weatherstation = nearest_weatherstation) %>%
   select(-geometry, -POPULATION)
 
-# left join weather data
+# left join weather data into trains data
 trains <- trains %>%
   left_join(weather_belgium, by = c("interval60" = "interval60", "from_nearest_weatherstation" = "station_id")) %>%
   mutate(from_temp = Temp) %>%
@@ -537,32 +512,6 @@ trains <- trains %>%
             TRUE ~ from_humid)) %>%
   mutate(to_humid = case_when(is.infinite(to_humid) ~ NA_real_,
             TRUE ~ to_humid))
-
-# Left join line data
-trains <- trains %>%
-   left_join(line_info, by = c("vehicle" = "vehicle_id")) 
-
-trains <- trains %>%
-  mutate(
-    vehicle_type = ifelse(
-      is.na(vehicle_type) | vehicle_type == "",  
-      gsub("[0-9]", "", vehicle),           
-      vehicle_type                          
-    )
-  )
-
-trains <- trains %>%
-  filter(!(vehicle_type %in% c("EUR", "ICE", "ICT", "TGV", "TRN", "undefined", "(null)")))
-
-
-# Create event data
-trains <- trains %>%
-  mutate(event = case_when(dotw == "Sat" ~ 1,
-                           dotw == "Sun" ~ 1,
-                           ymd(interval60) >= "2016-07-28" & ymd(interval60) <= "2016-09-04" ~ 1,
-                           ymd(interval60) == "2016-11-03" | ymd(interval60) == "2016-11-04" | ymd(interval60) == "2016-11-05" ~ 1,
-                           ymd(interval60) == "2016-11-13" | ymd(interval60) == "2016-11-14" | ymd(interval60) == "2016-11-15" ~ 1,
-                           TRUE ~ 0))
 ```
 
 ```{r weather_station_data, warning = FALSE, message = FALSE}
@@ -587,100 +536,79 @@ grid.arrange(top = "Weather DATA - Belgium - Jul - Dec 2016",
               ggplot(weather_belgium, aes(interval60, Temp)) + geom_line(aes(color=station_id))+plotTheme)
 ```
 
-Top 25 Count of Trains OD Pairs
+### (3) Vehicle data
 
-```{r top25, warning = FALSE, message = FALSE}
-# Filter high occupancy
-high_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
-  filter(occupancy == "high") %>%
-  count(from_station, to_station) %>%
-  arrange(desc(n)) %>%
-  rename(n_high = n)
+Train types in Belgium is as the following.[2] In this analysis, we removed "EUR", "ICE", "ICT", "TGV", "TRN", and other undefined vehicle code.
 
-low_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
-  filter(occupancy == "low") %>%
-  count(from_station, to_station) %>%
-  arrange(desc(n))%>%
-  rename(n_low = n)
+InterCity (IC): IC trains connect Belgium’s large cities.
+These trains only stop at the biggest train stations and sometimes cross international borders.
 
-occupancy <- high_occupancy %>%
-  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+Peak (P): P trains run during peak travel times.
+They provide additional alternatives when you’re travelling during busy periods.
+Most of these trains run in the mornings and in late afternoon.
 
-occupancy_data <- trains %>%
-  subset(!is.na(occupancy)) %>%
-  count(from_station, to_station, occupancy) %>%
-  group_by(from_station, to_station) %>%
-  mutate(total = sum(n)) 
+Local trains (L): L trains generally connect cities, but they also stop at every station along the route.
 
-occupancy_data %>%
-  filter(!is.na(to_station)) %>%
-   ungroup() %>% 
-  arrange(desc(total)) %>%
-  slice_head(n = 70) %>%  # Top 70 OD pairs
-  ggplot(aes(
-    x = reorder(paste(from_station, to_station, sep = " → "), total),
-    y = n,
-    fill = occupancy
-  )) +
-  geom_bar(stat = "identity") +  # Stacked bar chart
-  coord_flip() +
-  scale_fill_manual(values = colorPallete) +  
-  labs(
-    title = "Top 25 Count of Trains OD Pairs",
-    subtitle = "Training data, July - Oct 2016",
-    x = "OD Pair",
-    y = "Count of Trains",
-    fill = "Occupancy Level"
-  ) +
-  theme_minimal()+plotTheme+
-  theme(legend.position = "bottom")
+S-trains (S): S trains are suburban trains that connect the city centre with the surrounding communes.
+S trains stop in most stations along the route.
+
+EXTRA: Additional train services, used at exceptionally busy periods.
+For example, these are the trains that travel towards the Belgian coast on very sunny days.
+
+T (Touristic): Additional train service to certain tourist destinations.
+
+EXP (Coast Express): Extra train service to the Belgian coast during the summer period.
+International trains (INT = EC, THA, TGV, ICE, EST): Regular international trains, namely Eurocity, Thalys, TGV, ICE and Eurostar.
+
+```{r setup_panel2, warning = FALSE, message = FALSE, results = "hide"}
+# Left join line_data into trains data
+trains <- trains %>%
+   left_join(line_info, by = c("vehicle" = "vehicle_id")) 
+
+# Clean up vehicle type
+trains <- trains %>%
+  mutate(
+    vehicle_type = ifelse(
+      is.na(vehicle_type) | vehicle_type == "",  
+      gsub("[0-9]", "", vehicle),           
+      vehicle_type                          
+    )
+  )
+trains <- trains %>%
+  mutate(vehicle_type = case_when(
+    vehicle_type == "ic" & row_number() == min(which(vehicle_type == "ic")) ~ "IC",
+    TRUE ~ vehicle_type
+  ))
+trains <- trains %>%
+  mutate(vehicle = case_when(
+    vehicle == "ic2029" & row_number() == min(which(vehicle == "ic2029")) ~ "IC2029",
+    TRUE ~ vehicle
+  ))
+
+# Filter few vehicle_type
+trains <- trains %>%
+  filter(!(vehicle_type %in% c("EUR", "ICE", "ICT", "TGV", "TRN", "undefined", "(null)")))
+
 
 ```
 
-Top 10 High Occupancy Count of Trains OD Pairs
+### (4) Event data
 
-```{r top10high, warning = FALSE, message = FALSE}
-# Plot top 10 OD pairs with high occupancy
-high_occupancy %>%
-  filter(!is.na(to_station)) %>%
-  head(10) %>%
-  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_high), y = n_high)) +
-  geom_bar(stat = "identity", fill = "#a1b7b8") +
-  coord_flip() +
-  labs(
-    title = "Top 10 High-Occupancy OD Pairs",
-    subtitle = "Training data, July - Oct 2016",
-    x = "OD Pair",
-    y = "Count"
-  ) +
-  theme_minimal()+plotTheme
+```{r}
+# Create event data for weekends and holidays
+trains <- trains %>%
+  mutate(event = case_when(dotw == "Sat" ~ 1,
+                           dotw == "Sun" ~ 1,
+                           ymd(interval60) >= "2016-07-28" & ymd(interval60) <= "2016-09-04" ~ 1,
+                           ymd(interval60) == "2016-11-03" | ymd(interval60) == "2016-11-04" | ymd(interval60) == "2016-11-05" ~ 1,
+                           ymd(interval60) == "2016-11-13" | ymd(interval60) == "2016-11-14" | ymd(interval60) == "2016-11-15" ~ 1,
+                           TRUE ~ 0))
 ```
 
-Top 10 Low Occupancy Count of Trains OD Pairs
-
-```{r top10low, warning = FALSE, message = FALSE}
-# Plot top 10 OD pairs with low occupancy
-low_occupancy %>%
-  filter(!is.na(to_station)) %>%
-  head(10) %>%
-  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_low), y = n_low)) +
-  geom_bar(stat = "identity", fill = "#df543b") +
-  coord_flip() +
-  labs(
-    title = "Top 10 Low-Occupancy OD Pairs",
-    subtitle = "Training data, July - Oct 2016",
-    x = "OD Pair",
-    y = "Count"
-  ) +
-  theme_minimal()+plotTheme
-```
+### (5) Distance and Bearing Angle from Origin to Destination
 
 ```{r frequency, warning = FALSE, message = FALSE, results = "hide"}
-# Create and left join the frequency (count) of high and low occupancy data of origin and destination station by each OD pair
-trains <- trains %>%
-  left_join(high_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
-trains <- trains %>%
-  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+
 
 # Calculate the distance from O to Brussels, from D to Brussels, and from O to D in kilometers
 trains <- trains %>%
@@ -732,30 +660,369 @@ trains$bearing_from_O_to_D_cat <- case_when(
   trains$bearing_from_O_to_D >= 247.5 & trains$bearing_from_O_to_D < 292.5 ~ "W",
   trains$bearing_from_O_to_D >= 292.5 & trains$bearing_from_O_to_D < 337.5 ~ "NW"
 )
+```
 
+### (6) Time categorization
+
+The following plot shows a distribution between high and low occupancy levels by hour of the day.
+The train schedule was concentrated at 06:00-08:59 and 16:00-19:59.
+This result corresponds to the typical rush hour in Belgium, which is 08:00-17:00.
+Despite the large number of trains in this time zone, the low occupancy rate was low at around 33%.
+However, the low occupancy rate was about 62% at 10:00-14:59.
+
+```{r}
 # Categorize time
 time_category <- function(time) {
   hour <- as.numeric(format(time, "%H"))
-  if ((hour >= 7 & hour < 9) | (hour >= 17 & hour < 19)) {
+  if ((hour >= 6 & hour < 9) | (hour >= 16 & hour < 20)) {
     return("commute time")
-  } else if (hour >= 5 & hour < 7) {
+  } else if (hour >= 0 & hour < 6) {
     return("morning")
-  } else if (hour >= 9 & hour < 17) {
+  } else if (hour >= 9 & hour < 16) {
     return("noon")
-  } else if (hour >= 19 & hour < 24) {
-    return("evening")
   } else {
-    return("midnight")
+    return("evening")
   }
 }
 
-
-
 trains <- trains %>%
   mutate(time_cat = sapply(datetime, time_category))
-trains$time_cat <- factor(trains$time_cat, levels = c( "morning", "commute time", "noon", "evening", "midnight"))
+trains$time_cat <- factor(trains$time_cat, levels = c( "morning", "commute time", "noon", "evening"))
+```
+
+# 3. Exploratory Data Analysis
+
+## Location of Stations
+
+The map below shows the location of 567 train stations in Belgium. The colored stations are primary stations that represents each zone. SNCB operates trains in Belgium as well as France and the Netherlands, but we filtered the dataset to exclude non-Belgian stations (e.g. those in the Netherlands, France, Luxembourg etc.) in this analysis. 
+
+```{r station_map, warning = FALSE, message = FALSE}
+# Create a leaflet map
+pal <- colorFactor(
+  palette = "Set1",  
+  domain = stations_sf$Zone  
+)
+
+leaflet(stations_sf) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    label = ~name,
+    radius = 2,
+    color = ~pal(Zone),
+    fillOpacity = 0.9
+  ) %>%
+  addLegend("bottomright", pal=pal, values=~Zone, labels = "Stations", title = "Station Map")
 
 ```
+
+## Distribution of Train Occupancy Levels
+
+Trains data from July to October 2016 shows that more than 40% of trains had low occupancy as shown below.
+
+```{r occ_distribution, warning = FALSE, message = FALSE}
+# Occupancy distribution
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  count(occupancy) %>%
+  ggplot(aes(x = occupancy, y = n, fill = occupancy)) +
+  geom_bar(stat = "identity") +
+  geom_text(
+    aes(label = paste0(n, " (", round(n / sum(n) * 100, 1), "%)")), 
+    vjust = -0.5  
+  ) +
+  scale_fill_manual(values = colorPallete) +
+  labs(
+    title = "Distribution of Train Occupancy Levels",
+    subtitle = "Training data, July - Oct 2016",
+    x = "Occupancy Level",
+    y = "Count of Trains"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "none")
+
+```
+
+## Distribution of Train Occupancy Levels by Time Trend
+
+### (1) Train Occupancy Trend by Hour of the Day
+
+The following plot shows a distribution between high and low occupancy levels by hour of the day.
+The train schedule was concentrated at 06:00-08:59 and 16:00-19:59.
+This result corresponds to the typical rush hour in Belgium, which is 08:00-17:00.
+Despite the large number of trains in this time zone, the low occupancy rate was low at around 33%.
+However, the low occupancy rate was about 62% at 10:00-14:59.
+
+```{r occ_trend1, warning = FALSE, message = FALSE}
+# Time trend
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(hour = hour(datetime), occupancy) %>%
+  count()  %>%
+  ggplot(aes(x = factor(hour), y = n, fill = occupancy)) +  
+  geom_bar(stat = "identity") +  
+  geom_text(
+    aes(label = paste0(n)),
+    position = position_stack(vjust = 0.5)
+  ) +
+  scale_fill_manual(values = colorPallete) +  
+  labs(
+    title = "Train Occupancy Trend by Hour of the Day",
+    subtitle = "Training data, July - Oct 2016",
+    x = "Hour of Day",
+    y = "Count of Trains",
+    fill = "Occupancy Level"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+
+sum_trains <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(hour = hour(datetime), occupancy) %>%
+  count() %>%
+  pivot_wider(names_from = occupancy, values_from = n, values_fill = 0) %>%  
+  mutate(
+    ratio = low / (low + high),  
+    total = low + high           
+  )
+
+```
+
+```{r occ_trend2, warning = FALSE, message = FALSE}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(hour = hour(datetime)) %>%
+  count(occupancy) %>%
+  ggplot(aes(x = hour, y = n, color = occupancy)) +
+  geom_line() +
+  scale_color_manual(values = colorPallete) +
+  labs(
+    title = "Train Occupancy Trend by Hour of the Day",
+        subtitle = "Training data, July - Oct 2016",
+    x = "Hour of Day",
+    y = "Count"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+```
+
+### (2) Train Occupancy Trend by Day of Week
+
+The proportion of low occupancy routes on weekdays is lower than on weekends.
+According to the plot below, the average rate of low occupancy routes is 40.7% on weekdays (Monday to Friday), while 43.8% on weekends (Saturday and Sunday).
+
+```{r occ_trend3, warning = FALSE, message = FALSE}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  mutate(date = as.Date(datetime)) %>%  
+  group_by(dotw, occupancy) %>%
+  count() %>%
+  ggplot(aes(x = dotw, y = n, fill=occupancy)) +  # Use color for lines
+  geom_bar(stat = "identity") + 
+   geom_text(
+    aes(label = paste0(n)),
+    position = position_stack(vjust = 0.5)
+  ) +
+  scale_fill_manual(values = colorPallete) +  
+  labs(
+    title = "Train Occupancy Trend by Day of Week",
+    subtitle = "Training data, July - Oct 2016",
+    x = "Day",
+    y = "Count of Trains",
+    color = "Occupancy Level"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+
+sum_trains2 <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(dotw, occupancy) %>%
+  count() %>%
+  pivot_wider(names_from = occupancy, values_from = n, values_fill = 0) %>%  
+  mutate(
+    ratio = low / (low + high),  
+    total = low + high           
+  )
+```
+
+```{r occ_trend4, warning = FALSE, message = FALSE}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  mutate(date = as.Date(datetime)) %>%  
+  group_by(dotw, occupancy) %>%
+  summarise(n = n(), .groups = "drop") %>%  # Use summarise instead of count
+  ggplot(aes(x = dotw, y = n, color = occupancy, group = occupancy)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colorPallete) +  
+  labs(
+    title = "Train Occupancy Trend by Day of Week",
+            subtitle = "Training data, July - Oct 2016",
+    x = "Day",
+    y = "Count of Trains",
+    color = "Occupancy Level"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+```
+
+### (3) Train Occupancy Trend by Date
+
+When comparing the `trains` data from mid-August to mid-September with the data from mid-September to the end of October, we observed that the number of record is significantly different.
+One possible reason we guess is missing data.
+Another reason could be that SNCB holiday period from the end of July to end of August, during which certain IC, S and P trains do not run, so that there is possibly a reduced number of trains during this period.
+In this analysis, we assumed that there were no missing data, and set event as 1 for the date of holiday period as well as weekends and public holidays.
+
+![SNCB Calendar of 2024](Data/calendar-EN-V4.PNG)
+
+```{r occ_trend5, warning = FALSE, message = FALSE}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  mutate(date = as.Date(datetime)) %>%  
+  group_by(date, hour = hour(datetime), occupancy) %>%
+  count() %>%
+  ggplot(aes(x = date, y = n, fill=occupancy)) +  # Use color for lines
+  geom_bar(stat = "identity") +  # Stacked bar chart
+  scale_fill_manual(values = colorPallete) +  
+  labs(
+    title = "Train Occupancy Trend by Date",
+    subtitle = "Training data, July - Oct 2016",
+    x = "Date and Hour",
+    y = "Count of Trains",
+    color = "Occupancy Level"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+
+sum_trains3 <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(date, dotw, occupancy) %>%
+  count() %>%
+  pivot_wider(names_from = occupancy, values_from = n, values_fill = 0) %>%  
+  mutate(
+    ratio = low / (low + high),  
+    total = low + high           
+  ) %>%
+  filter(total >=5)
+```
+
+```{r occ_trend6, warning = FALSE, message = FALSE}
+trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(date = date(datetime)) %>%
+  count(occupancy) %>%
+  ggplot(aes(x = date, y = n, color = occupancy)) +
+  geom_line() +
+  scale_color_manual(values = colorPallete) +
+  labs(
+    title = "Train Occupancy Trend by Date",
+        subtitle = "Training data, July - Oct 2016",
+    x = "Date",
+    y = "Count"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+```
+
+In sum, most prominent low occupancy routes are during off-peak hours, on weekends, and scattered throughout the date on early July-August.
+Meanwhile, high occupancy routes are strong during commuter hour, on weekdays, and on mid-late October.
+
+## Distribution of Train Occupancy Levels by OD Pairs
+
+### (1) Top 25 Count of Trains OD Pairs
+
+```{r top25, warning = FALSE, message = FALSE}
+# Filter high occupancy
+high_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
+  filter(occupancy == "high") %>%
+  count(from_station, to_station) %>%
+  arrange(desc(n)) %>%
+  rename(n_high = n)
+
+low_occupancy <- trains %>% subset(!is.na(occupancy)) %>%
+  filter(occupancy == "low") %>%
+  count(from_station, to_station) %>%
+  arrange(desc(n))%>%
+  rename(n_low = n)
+
+# Create and left join the frequency (count) of high and low occupancy data of origin and destination station by each OD pair
+trains <- trains %>%
+  left_join(high_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+trains <- trains %>%
+  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+
+occupancy <- high_occupancy %>%
+  left_join(low_occupancy, by = c("from_station" = "from_station", "to_station" = "to_station")) 
+
+occupancy_data <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  count(from_station, to_station, occupancy) %>%
+  group_by(from_station, to_station) %>%
+  mutate(total = sum(n)) 
+
+occupancy_data %>%
+  filter(!is.na(to_station)) %>%
+   ungroup() %>% 
+  arrange(desc(total)) %>%
+  slice_head(n = 70) %>%  # Top 70 OD pairs
+  ggplot(aes(
+    x = reorder(paste(from_station, to_station, sep = " → "), total),
+    y = n,
+    fill = occupancy
+  )) +
+  geom_bar(stat = "identity") +  # Stacked bar chart
+  coord_flip() +
+  scale_fill_manual(values = colorPallete) +  
+  labs(
+    title = "Top 25 Count of Trains OD Pairs",
+    subtitle = "Training data, July - Oct 2016",
+    x = "OD Pair",
+    y = "Count of Trains",
+    fill = "Occupancy Level"
+  ) +
+  theme_minimal()+plotTheme+
+  theme(legend.position = "bottom")
+
+```
+
+### (2) Top 10 High Occupancy Count of Trains OD Pairs
+
+```{r top10high, warning = FALSE, message = FALSE}
+# Plot top 10 OD pairs with high occupancy
+high_occupancy %>%
+  filter(!is.na(to_station)) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_high), y = n_high)) +
+  geom_bar(stat = "identity", fill = "#a1b7b8") +
+  coord_flip() +
+  labs(
+    title = "Top 10 High-Occupancy OD Pairs",
+    subtitle = "Training data, July - Oct 2016",
+    x = "OD Pair",
+    y = "Count"
+  ) +
+  theme_minimal()+plotTheme
+```
+
+### (3) Top 10 Low Occupancy Count of Trains OD Pairs
+
+```{r top10low, warning = FALSE, message = FALSE}
+# Plot top 10 OD pairs with low occupancy
+low_occupancy %>%
+  filter(!is.na(to_station)) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(paste(from_station, to_station, sep = " → "), n_low), y = n_low)) +
+  geom_bar(stat = "identity", fill = "#df543b") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Low-Occupancy OD Pairs",
+    subtitle = "Training data, July - Oct 2016",
+    x = "OD Pair",
+    y = "Count"
+  ) +
+  theme_minimal()+plotTheme
+```
+
+
+### (4) Top 25 Low Occupancy Percentage OD Pairs
 
 ```{r top25lowperc, warning = FALSE, message = FALSE}
 # Plot top 25 OD pairs with low occupancy percentage
@@ -788,7 +1055,7 @@ high_occupancy %>%
 # Visualize distribution 
 
 ggplot(low_occupancy, aes(x = n_low)) +
-  geom_histogram(binwidth = 10, fill = "blue", color = "white") +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
   labs(
     title = "Distribution of Low Occupancy Counts",
     x = "Count (n)",
@@ -797,6 +1064,10 @@ ggplot(low_occupancy, aes(x = n_low)) +
   theme_minimal()+plotTheme
 
 ```
+
+## Other Feature Associations with the Likelihood of Occupancy Level
+
+### (1) Continuous Variables: Average Stop Times, Number of Stops
 
 ```{r}
 trains %>%
@@ -815,6 +1086,8 @@ trains %>%
   theme(legend.position="none")
 ```
 
+### (2) Continuous Variables: Temperature, Relative Humidity, Wind Speed of Origin and Destination Station
+
 ```{r}
 trains %>%
   filter(!is.na(occupancy)) %>% 
@@ -827,6 +1100,92 @@ trains %>%
   labs(x="Occupancy", y="Mean", 
        title="Feature associations with the likelihood of occupancy Level",
        subtitle="Temperature and wind of origin and destination station\nTraining data, July - Oct 2016", 
+       caption="Source: Kaggle")+
+  theme_minimal()+plotTheme+
+  theme(legend.position="none")
+```
+
+
+
+
+
+### (3) Continuous Variables: Distance from Origin to Destination, Origin to Brussels, Destination to Brussels
+
+```{r}
+trains %>%
+  filter(!is.na(occupancy)) %>% 
+  select(occupancy, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels) %>%
+  gather(Variable, value, -occupancy) %>%
+  ggplot(aes(occupancy, value, fill=occupancy)) +
+  geom_bar(position="dodge", stat="summary", fun="mean") +
+  facet_wrap(~Variable, scales="free") +
+  scale_fill_manual(values=colorPallete) +
+  labs(x="Occupancy", y="Mean distance (km)", 
+       title="Feature associations with the likelihood of occupancy Level",
+       subtitle="Distance from O, D to Brussels, and from O to D\nTraining data, July - Oct 2016", 
+       caption="Source: Kaggle")+
+  theme_minimal()+plotTheme+
+  theme(legend.position="none")
+```
+
+### (4) Categorical Variables: Bearing Angle Direction from Origin to Destination
+
+```{r}
+trains %>%
+  filter(!is.na(occupancy)) %>% 
+  select(occupancy, bearing_from_O_to_D_cat) %>%
+  gather(Variable, value, -occupancy) %>%
+  count(Variable, value, occupancy) %>%
+  ggplot(aes(occupancy, n, fill=occupancy)) +
+  geom_bar(position="dodge", stat="summary") +
+  ylim(0,250)+
+  facet_wrap(~value, scales="free") +
+  scale_fill_manual(values=colorPallete) +
+  labs(x="Occupancy", y="Count", 
+       title="Feature associations with the likelihood of low occupancy",
+       subtitle="Vehicle type for IC, L, P, S, and THA\nTraining data, July - Oct 2016", 
+       caption="Source: Kaggle")+
+  theme_minimal()+plotTheme+
+  theme(legend.position="none")
+```
+
+
+### (5) Binomial Variables: Event
+
+```{r}
+trains %>%
+  filter(!is.na(occupancy)) %>% 
+  select(occupancy, event) %>%
+  gather(Variable, value, -occupancy) %>%
+  count(Variable, value, occupancy) %>%
+  ggplot(aes(occupancy, n, fill=occupancy)) +
+  geom_bar(position="dodge", stat="summary") +
+  facet_wrap(~value, scales="free") +
+  scale_fill_manual(values=colorPallete) +
+  ylim(0,1200)+
+  labs(x="Occupancy", y="Count", 
+       title="Feature associations with the likelihood of low occupancy",
+       subtitle="Event: 0 = Weekday,  1 = Weekend or holiday\nTraining data, July - Oct 2016", 
+       caption="Source: Kaggle")+
+  theme_minimal()+plotTheme+
+  theme(legend.position="none")
+```
+### (6) Categorical Variables: Time category
+
+```{r}
+trains %>%
+  filter(!is.na(occupancy)) %>% 
+  select(occupancy, time_cat) %>%
+  gather(Variable, value, -occupancy) %>%
+  count(Variable, value, occupancy) %>%
+  ggplot(aes(occupancy, n, fill=occupancy)) +
+  geom_bar(position="dodge", stat="summary") +
+  ylim(0,650)+
+  facet_wrap(~value, scales="free") +
+  scale_fill_manual(values=colorPallete) +
+  labs(x="Occupancy", y="Count", 
+       title="Feature associations with the likelihood of low occupancy",
+       subtitle="0700-0900 and 1700-1900 commute, 1900-2400 evening, 0000-0500 midnight, 0500-0700 morning, 0900-1700 noon\nTraining data, July - Oct 2016", 
        caption="Source: Kaggle")+
   theme_minimal()+plotTheme+
   theme(legend.position="none")
@@ -866,63 +1225,7 @@ ggplot(train_summary, aes(x = dotw, y = low_ratio, fill=time_cat)) +
 
 ```
 
-
-```{r}
-trains %>%
-  filter(!is.na(occupancy)) %>% 
-  select(occupancy, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels) %>%
-  gather(Variable, value, -occupancy) %>%
-  ggplot(aes(occupancy, value, fill=occupancy)) +
-  geom_bar(position="dodge", stat="summary", fun="mean") +
-  facet_wrap(~Variable, scales="free") +
-  scale_fill_manual(values=colorPallete) +
-  labs(x="Occupancy", y="Mean distance (km)", 
-       title="Feature associations with the likelihood of occupancy Level",
-       subtitle="Distance from O, D to Brussels, and from O to D\nTraining data, July - Oct 2016", 
-       caption="Source: Kaggle")+
-  theme_minimal()+plotTheme+
-  theme(legend.position="none")
-```
-
-```{r}
-trains %>%
-  filter(!is.na(occupancy)) %>% 
-  select(occupancy, event) %>%
-  gather(Variable, value, -occupancy) %>%
-  count(Variable, value, occupancy) %>%
-  ggplot(aes(occupancy, n, fill=occupancy)) +
-  geom_bar(position="dodge", stat="summary") +
-  facet_wrap(~value, scales="free") +
-  scale_fill_manual(values=colorPallete) +
-  ylim(0,1200)+
-  labs(x="Occupancy", y="Count", 
-       title="Feature associations with the likelihood of low occupancy",
-       subtitle="Event: 0 = Weekday,  1 = Weekend or holiday\nTraining data, July - Oct 2016", 
-       caption="Source: Kaggle")+
-  theme_minimal()+plotTheme+
-  theme(legend.position="none")
-```
-
-
-
-```{r}
-trains %>%
-  filter(!is.na(occupancy)) %>% 
-  select(occupancy, time_cat) %>%
-  gather(Variable, value, -occupancy) %>%
-  count(Variable, value, occupancy) %>%
-  ggplot(aes(occupancy, n, fill=occupancy)) +
-  geom_bar(position="dodge", stat="summary") +
-  ylim(0,650)+
-  facet_wrap(~value, scales="free") +
-  scale_fill_manual(values=colorPallete) +
-  labs(x="Occupancy", y="Count", 
-       title="Feature associations with the likelihood of low occupancy",
-       subtitle="0700-0900 and 1700-1900 commute, 1900-2400 evening, 0000-0500 midnight, 0500-0700 morning, 0900-1700 noon\nTraining data, July - Oct 2016", 
-       caption="Source: Kaggle")+
-  theme_minimal()+plotTheme+
-  theme(legend.position="none")
-```
+### (7) Categorical VariableS: Vehicle Type
 
 ```{r}
 trains %>%
@@ -942,24 +1245,7 @@ trains %>%
   theme_minimal()+plotTheme+
   theme(legend.position="none")
 ```
-```{r}
-trains %>%
-  filter(!is.na(occupancy)) %>% 
-  select(occupancy, bearing_from_O_to_D_cat) %>%
-  gather(Variable, value, -occupancy) %>%
-  count(Variable, value, occupancy) %>%
-  ggplot(aes(occupancy, n, fill=occupancy)) +
-  geom_bar(position="dodge", stat="summary") +
-  ylim(0,250)+
-  facet_wrap(~value, scales="free") +
-  scale_fill_manual(values=colorPallete) +
-  labs(x="Occupancy", y="Count", 
-       title="Feature associations with the likelihood of low occupancy",
-       subtitle="Vehicle type for IC, L, P, S, and THA\nTraining data, July - Oct 2016", 
-       caption="Source: Kaggle")+
-  theme_minimal()+plotTheme+
-  theme(legend.position="none")
-```
+
 
 
 ```{r station_map_routes_load, warning = FALSE, message = FALSE, results = "hide"}
@@ -1124,10 +1410,10 @@ ggplot() +
        subtitle = "trains_trainTest that is split of trains_train") +
   theme(legend.position = "bottom")+plotTheme
 ```
+
 ```{r}
 pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.6277
 ```
-
 
 ## Cost Benefit Analysis
 
@@ -1187,10 +1473,10 @@ ggplot() +
        subtitle = "trains_trainTest that is split of trains_train") +
   theme(legend.position = "bottom")+plotTheme
 ```
+
 ```{r}
 pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.6764
 ```
-
 
 ## Cost Benefit Analysis
 
@@ -1201,3 +1487,13 @@ pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.6764
 ## Conclusion
 
 ## Discussion
+
+## References
+
+[1] https://github.com/iRail/iRail/blob/master/public/terms/index.html
+
+[1] <https://www.rdocumentation.org/packages/riem/versions/0.3.2/topics/riem_measures> 
+
+[2] <https://www.belgiantrain.be/en/support/faq/faq-routes-schedules/faq-train-types> 
+
+[3] <https://www.belgiantrain.be/en/travel-info/train-network-travel-info/calendar-adaptations>
