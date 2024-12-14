@@ -15,58 +15,39 @@ editor_options:
 
 ## Background
 
-NMBS/SNCB trains, which is the biggest railway serving the country of Belgium, needs to postpone the expansion because of lack of train personnel staff.
-Also, the raise on energy cost increase the operating cost.
-Meanwhile, the company still face revenue loss because of low passengers on some routes.
+Nationale Maatschappij der Belgische Spoorwegen (NMBS), or Société nationale des chemins de fer belges (SNCB) is the National Railway Company of Belgium and the largest railway operator in the country. 
 
-With these problems, the company can strategically plan their policies on optimizing resource allocation, enhancing operational cost efficiency, and also increasing revenue especially on their low occupancy routes.
-But how can they do that?
+The company needs to postpone its expansion due to a shortage of train personnel. Additionally, rising energy costs have increased operating expenses. Meanwhile, the company continues to face revenue losses due to low passenger numbers on some routes.
+
+Given these challenges, the company must develop a strategy to optimize resource allocation, improve operational efficiency, and increase revenue, particularly on low-occupancy routes.
+
+## Purpose
+
+This project aims to provide transportation planners at NMBS with a model called Re-train, which is to predict train occupancy levels for different Origin-Destination (OD) pairs in the Belgian railway system.
 
 ## Use Case
 
-This project is aim to predict occupancy levels (categorized by high and low) for different Origin-Destination (OD) pairs of Belgium railway system to allocate resources such as train frequency and size effectively to help transportation planners of NMBS/SNCB or the Transportation Department in Belgium.
+While NMBS has an occupancy prediction app for passengers called Move Safe, transportation planners need a more comprehensive tool to forecast occupancy levels across routes and reflect their plan to increase/decrease amount of trains, merge of two similar routes, or decrease the frequent of the route to change low occupancy routes to medium or high.
 
-e.g. extend/merge train routes, minimize vacant trains or mitigate crowdedness of trains etc.
+This tool will help planners make informed decisions on resource allocation, such as train frequency and size, to optimize service quality and efficiency.
 
-Question:
+## Main Question
 
-What is the level of occupancy of a certain OD pair at a specific time?
+1. What was the level of occupancy of a certain OD pair at a specific time in the past? (Modeling and validation of accuracy and generalizability)
 
-What options do planners have to manage this demand?
+2. What is the threshold of level of occupancy that optimize low occupancy and how much is the revenue at that time? (Cost-benefit analysis)
 
-e.g. decrease amount of trains, merge of two similar routes, or decrease the frequent of the route to change low routes to medium, and of increase amount of trains, separate two similar routes, or increase the frequent of the route to change high routes to medium.
+3. What will be future level of occupancy in the future and which options can planners choose option? (Prediction and application to real life)
 
-We build this web-based application, called Re-Train that predict the occupancy rate across the routes with three stages, first analysing and visualizing past data, creating long-term or short-term predictions based on the users’ need, and last, showcasing potential benefits and risk on the predictions.
+e.g. decrease amount of trains, merge of two similar routes, or decrease the frequent of the route to change low routes to high
 
-This is the interface which shows the latest occupancy rate where orange shows low occupancy routes.
-First feature is History trend analysis.
-On the top-right corner, user can filter based on those variables and click analysis, to see graph and maps of the train occupancy level in the past.
+## Methodology
 
-Second feature is prediction.
-you can predict by filtering like the first one, and choose the period time based on your needs.
-After clicking the predict, the predicted occupancy rate will result in the percentage of each level and be shown in the map, and also the accuracy percentage & graph below the map.
+This model uses binomial regression to predict train occupancy (high or low) while identifying key factors that are validated through k-fold cross-validation for robustness.
 
-Last feature, you can check on the cost benefit analysis based on the scenario of the prediction which will show you the potential benefit & potential risk of optimizing routes on those period of time.
-Then, you can export the report to help you make decision based on that.
-
-How it works?
-
-We use Kaggle train occupancy level data on 2016 which have these variables that potentially correlate with the occupancy rate.
-And add some external datas like weather, demographic, and fare, and then predict using logistic regression.
-
-From this, we can see high-demand OD pairs are consistent, while low-demand OD pairs keep on changing.
-High occupancy is concentrated on major intercity and commuter routes.
-Meanwhile, smaller or regional routes shows reduced demand.
-But there are two quite big OD Pairs that dominate low-occupancy, possibly indicating a mismatch in train frequency with actual demand.
-
-The modeling approach uses binomial regression to predict train occupancy (high or low) while identifying key factors that are validated through k-fold cross-validation for robustness.
-Also, a confusion matrix will assess the model's predictive accuracy and reliability which is shown in the app through accuracy percentage and graph.
+Also, we will assess the model's predictive accuracy and reliability a confusion matrix, which is shown in the app through accuracy percentage and graph as well.
 
 To minimize the risks of misclassifying high-occupancy routes as low, we set a higher threshold to ensure only routes with a strong likelihood of low occupancy are chosen just like shown on the animation example, It will prioritize service reliability and passenger satisfaction.
-
-By correctly predicting low-occupancy routes, we can achieve significant cost savings in maintenance, labor, and energy while avoiding wasted resources.
-However, misclassifying high-occupancy as low can lead to revenue loss, overcrowding, and passenger dissatisfaction.
-Striking the right balance in predictions ensures optimized resource allocation and supports a sustainable and efficient rail network.
 
 # 2. Data Setup
 
@@ -83,8 +64,10 @@ knitr::opts_chunk$set(echo = TRUE)
 #devtools::install_github("jwijffels/BelgiumMaps.Admin", build_vignettes = TRUE)
 #devtools::install_github("jwijffels/StatisticsBelgium", build_vignettes = TRUE)
 #library(BelgiumStatistics)
+#install.packages("gganimate")
 library(tidyverse)
 library(tidycensus)
+library(gganimate)
 library(sf)
 library(knitr)
 library(kableExtra)
@@ -121,7 +104,7 @@ library(showtext) # to set up font in plots
 font_add_google("Roboto", "roboto") # to set up font in plots
 showtext_auto(TRUE)
 library(geosphere) # to calculate distance from two different geolocation (lat, lng)
-
+options(digits = 3, scipen = 999)
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 colorPallete <- c("low" = "#df543b", "medium" = "#a1b7b8", "high" = "#a1b7b8")
 plotTheme <- theme(
@@ -187,6 +170,10 @@ trains_test <- read.csv("./Data/trains_test.csv")
 trains_train <- read.csv("./Data/trains_train.csv") 
 stations <- read.csv("./Data/stations.csv")
 
+#removing unknown stations and changing null vehicle to undefined
+trains_test$vehicle[trains_test$vehicle == "(null)"] <- "undefined"
+trains_train <- subset(trains_train, to != "000000000")
+
 # Load (4) Belgium statistical tracts and (5) population data
 statBel <- st_read("./Data/sh_statbel_statistical_sectors_3812_20240101.geojson") %>%
   st_transform(4326) 
@@ -238,7 +225,7 @@ After we finished the data wrangling, we split them back into training and test 
 Second, we recoded occupancy data from three levels (low, medium, high) to two levels (low, high).
 This was done to focus more on analyzing trends in low occupancy data, and to simplify regression analysis process by using a binomial model instead of a multinomial one.
 
-<Three-level classification of train occupancy>[1]
+<Three-level classification of train occupancy>[2]
 
 1. Low: There are plenty of seats left.
 
@@ -375,7 +362,7 @@ trains <- trains %>%
 
 As of 2016, the population of Belgium is 11,267,910. In Belgium, 43 municipalities (`CD_DSTR_REFNIS`), 589 Reference from National Institute of Statistics Code (`CD_REFNIS`), and 2,882 statistical sectors (`CD_SECTOR`). We performed a left join to add the municipality where the origin and destination stations are located and their population, to the `trains` dataset.
 
-```{r}
+```{r popwrangling, warning = FALSE, message = FALSE}
 statBel_muni <- statBel_muni %>%
   mutate(tx_adm_dstr_descr_fr_appr = str_extract(tx_adm_dstr_descr_fr, 
                                   "(?<=Arrondissement d’|Arrondissement de )\\b[\\wÀ-ÿ\\s-]+\\b")) 
@@ -397,7 +384,7 @@ ggplot()+
   theme(legend.position = "bottom")
 ```
 
-```{r}
+```{r joinpop, warning = FALSE, message = FALSE}
 stations_with_pop <- st_join(stations_sf, statBel_muni) %>%
   st_drop_geometry()
 stations_with_pop <- stations_with_pop %>%
@@ -433,7 +420,9 @@ trains <- trains %>%
 
 ### (2) Weather data
 
-```{r}
+We assumed that the weather conditions of the origin and destination regions would affect the occupancy level of the trains. We used the weather data from RIEM package to calculate the temperature, relative humidity, and wind speed of each hour of the day at the origin and destination regions. Relative humidity was used as a substitute variable and can reflect general patterns related to precipitation. Also, by spatially intersection, we added a column that shows the nearest weather station from each municipality. Finally, the nearest weather station and the weather data from the nearest weather station was left joined to the `trains` dataset.
+
+```{r joinweather, warning = FALSE, message = FALSE}
 # Load weather data
 weatherstations_sf <- riem_stations(network = "BE__ASOS") %>% # BE__ASOS = Belgium ASOS (Weather Stations)
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
@@ -514,12 +503,14 @@ trains <- trains %>%
             TRUE ~ to_humid))
 ```
 
+The following map shows the administrative districts of Belgium and the locations of weather stations. 
+
 ```{r weather_station_data, warning = FALSE, message = FALSE}
 ggplot()+
   geom_sf(data=statBel_muni , fill="#a1b7b8", color="#333")+
   geom_sf(data=weatherstations_sf, color="#df543b", size=1)+
   geom_sf_text(data = statBel_muni ,
-               aes(label = cd_dstr_refnis),  
+               aes(label = tx_adm_dstr_descr_fr_appr),  
                size = 3, color = "black") +
   labs(
     title = "Weather Station Location in Belgium",
@@ -528,6 +519,8 @@ ggplot()+
   ) +
   theme_void()+plotTheme
 ```
+
+The following plots show humidity, wind speed, and temperature data by 12 weather stations in Belgium.
 
 ```{r weather_data, warning = FALSE, message = FALSE}
 grid.arrange(top = "Weather DATA - Belgium - Jul - Dec 2016",
@@ -538,7 +531,7 @@ grid.arrange(top = "Weather DATA - Belgium - Jul - Dec 2016",
 
 ### (3) Vehicle data
 
-Train types in Belgium is as the following.[2] In this analysis, we removed "EUR", "ICE", "ICT", "TGV", "TRN", and other undefined vehicle code.
+Train types in Belgium is as the following.[3] In this analysis, we removed "EUR", "ICE", "ICT", "TGV", "TRN", and other undefined vehicle code.
 
 InterCity (IC): IC trains connect Belgium’s large cities.
 These trains only stop at the biggest train stations and sometimes cross international borders.
@@ -587,14 +580,14 @@ trains <- trains %>%
 
 # Filter few vehicle_type
 trains <- trains %>%
-  filter(!(vehicle_type %in% c("EUR", "ICE", "ICT", "TGV", "TRN", "undefined", "(null)")))
+  filter(!(vehicle_type %in% c("EUR", "ICE", "ICT", "TGV", "TRN", "THA", "undefined", "(null)")))
 
 
 ```
 
 ### (4) Event data
 
-```{r}
+```{r event, warning = FALSE, message = FALSE}
 # Create event data for weekends and holidays
 trains <- trains %>%
   mutate(event = case_when(dotw == "Sat" ~ 1,
@@ -670,7 +663,7 @@ This result corresponds to the typical rush hour in Belgium, which is 08:00-17:0
 Despite the large number of trains in this time zone, the low occupancy rate was low at around 33%.
 However, the low occupancy rate was about 62% at 10:00-14:59.
 
-```{r}
+```{r cattime, warning = FALSE, message = FALSE}
 # Categorize time
 time_category <- function(time) {
   hour <- as.numeric(format(time, "%H"))
@@ -868,7 +861,7 @@ trains %>%
 
 When comparing the `trains` data from mid-August to mid-September with the data from mid-September to the end of October, we observed that the number of record is significantly different.
 One possible reason we guess is missing data.
-Another reason could be that SNCB holiday period from the end of July to end of August, during which certain IC, S and P trains do not run, so that there is possibly a reduced number of trains during this period.
+Another reason could be that SNCB holiday period from the end of July to end of August, during which certain IC, S and P trains do not run, so that there is possibly a reduced number of trains during this period.[4]
 In this analysis, we assumed that there were no missing data, and set event as 1 for the date of holiday period as well as weekends and public holidays.
 
 ![SNCB Calendar of 2024](Data/calendar-EN-V4.PNG)
@@ -926,6 +919,8 @@ In sum, most prominent low occupancy routes are during off-peak hours, on weeken
 Meanwhile, high occupancy routes are strong during commuter hour, on weekdays, and on mid-late October.
 
 ## Distribution of Train Occupancy Levels by OD Pairs
+
+The following (1)-(4) are the distribution of train occupancy levels by origin and destination (OD) pairs. 
 
 ### (1) Top 25 Count of Trains OD Pairs
 
@@ -1039,37 +1034,137 @@ high_occupancy %>%
     title = "Top 25 Low-Occupancy Percentage OD Pairs",
     subtitle = "Training data, July - Oct 2016",
     x = "OD Pair",
-    y = "Percentage of Low Occupancy (%)"
-  ) +
+    y = "Percentage of Low Occupancy (%)") +
   theme_minimal()+plotTheme
 ```
 
 ```{r lowcounts, warning = FALSE, message = FALSE}
-# Distribution summary
-#summary(high_occupancy$n)
-#summary(low_occupancy$n)
-#  group_by(from_station, to_station) %>%
-#  summarise(n = sum(n)) %>%
-#  ungroup()
-
 # Visualize distribution 
 
 ggplot(low_occupancy, aes(x = n_low)) +
-  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  geom_histogram(binwidth = 1, fill = "#df543b", color = "white") +
   labs(
     title = "Distribution of Low Occupancy Counts",
     x = "Count (n)",
     y = "Frequency"
   ) +
   theme_minimal()+plotTheme
-
 ```
+ 
+### (5) Time/Space Analysis
+
+```{r mapviz, warning = FALSE, message = FALSE}
+# Prepare data
+routes_data <- trains %>%
+  subset(!is.na(occupancy)) %>%
+  group_by(from_station, to_station, from_lat, from_lng, to_lat, to_lng) %>%
+  summarize(high_count = sum(occupancy == "high"), 
+            low_count = sum(occupancy == "low"), .groups = "drop") %>%
+  mutate(total = high_count + low_count,
+         high_rate = high_count / total * 100,
+         low_rate = low_count / total * 100)
+
+# Top 25 highest occupancy rate routes
+highest_occupancy <- routes_data %>%
+  arrange(desc(high_rate)) %>%
+  slice_head(n = 25)
+
+# Top 25 lowest occupancy rate routes
+lowest_occupancy <- routes_data %>%
+  arrange(desc(low_rate)) %>%
+  slice_head(n = 25)
+
+# Combine datasets and add animation frame
+# Clean animation data and ensure valid geometries
+animation_data <- highest_occupancy %>%
+  mutate(type = "High Occupancy", frame = 1) %>%
+  bind_rows(
+    lowest_occupancy %>% mutate(type = "Low Occupancy", frame = 2)
+  ) %>%
+  filter(
+    !is.na(from_lat), !is.na(from_lng),
+    !is.na(to_lat), !is.na(to_lng)
+  ) %>%
+  rowwise() %>%
+  mutate(
+    geometry = st_sfc(
+      st_linestring(matrix(c(from_lng, from_lat, to_lng, to_lat), ncol = 2, byrow = TRUE)),
+      crs = 4326
+    )
+  ) %>%
+  st_as_sf()
+
+# Base map with `statBel_muni`
+base_map <- ggplot() +
+  geom_sf(data = statBel_muni, aes(fill = tx_adm_dstr_descr_fr_appr), color = "lightblue", size = 0.2) +
+  scale_fill_manual(values = rep("white", length(unique(statBel_muni$tx_adm_dstr_descr_fr_appr)))) + # Set all regions to white
+  guides(fill = "none") + # Remove legend for the background
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),  # White background
+    panel.grid = element_blank(),  # Remove grid lines
+    axis.text = element_blank(),  # Remove axis text
+    axis.ticks = element_blank(),  # Remove axis ticks
+    axis.title = element_blank(),  # Remove axis titles
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Centered title
+    plot.subtitle = element_text(size = 12, hjust = 0.5)  # Centered subtitle
+  )
+
+points_data <- animation_data %>%
+  st_drop_geometry() %>%
+  rowwise() %>%
+  mutate(
+    origin_geom = st_sfc(st_point(c(from_lng, from_lat)), crs = 4326),
+    destination_geom = st_sfc(st_point(c(to_lng, to_lat)), crs = 4326)
+  ) %>%
+  st_as_sf()
+
+# Animated map with routes and points
+animated_map <- base_map +
+  # Plot routes
+  geom_sf(data = animation_data, aes(geometry = geometry, color = type), size = 20) + # Thick lines
+  # Plot origin points
+  geom_sf(data = points_data, aes(geometry = origin_geom), shape = 21, fill = "blue", size = 3, color = "black") +
+  # Plot destination points
+  geom_sf(data = points_data, aes(geometry = destination_geom), shape = 21, fill = "red", size = 3, color = "black") +
+  # Scale for line colors
+  scale_color_manual(
+    values = c(
+      "High Occupancy" = "grey40",   # Bold grey for high occupancy
+      "Low Occupancy" = "orange"    # Bold orange for low occupancy
+    )
+  ) +
+  labs(
+    title = "Top 25 Train Occupancy Routes",
+    subtitle = "Highlighting {closest_state}",
+    color = "Route Type"
+  ) +
+  transition_states(type, transition_length = 2, state_length = 2) +
+  ease_aes('linear')
+
+# Save the animation as a GIF
+#animate(animated_map, nframes = 100, fps = 10, width = 900, height = 600, #renderer = gifski_renderer("occupancy_routes_with_points.gif"))
+```
+
+
+
+![*Top 25 Occupancy Routes*](occupancy_routes_with_points.gif)
+
+
+
+![*Top 25 Occupancy Routes*](occupancy_routes_by_dotw.gif)
+
+
+
+The provided map visualization represents the top 25 train occupancy routes based on occupancy level. Based on the map, high occupancy is concentrated on major intercity and commuter routes. Meanwhile, smaller or regional routes shows reduced demand. But there are two quite big OD Pairs that dominate low-occupancy, possibly indicating a mismatch in train frequency with actual demand.
 
 ## Other Feature Associations with the Likelihood of Occupancy Level
 
 ### (1) Continuous Variables: Average Stop Times, Number of Stops
 
-```{r}
+In the first analysis of continuous variables, we found that the number of stops does not vary significantly not that much different among the likelihood of occupancy level, and average stop times of low occupancy OD pairs are shorter than those of high occupancy ones.
+
+```{r contvar, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, from_avg_stop_times, to_avg_stop_times, nr_of_stops) %>%
@@ -1086,9 +1181,32 @@ trains %>%
   theme(legend.position="none")
 ```
 
-### (2) Continuous Variables: Temperature, Relative Humidity, Wind Speed of Origin and Destination Station
+### (2) Continuous Variables: Population of Origin and Destination Station
 
-```{r}
+The average population of each origin and destination station may affect the likelihood of occupancy level. The average population of the destination station was higher for high-occupancy pairs than for low-occupancy pairs, while the average population of the origin station was not significantly different.
+
+```{r contvar1, warning = FALSE, message = FALSE}
+trains %>%
+  filter(!is.na(occupancy)) %>% 
+  select(occupancy, from_pop, to_pop) %>%
+  gather(Variable, value, -occupancy) %>%
+  ggplot(aes(occupancy, value, fill=occupancy)) +
+  geom_bar(position="dodge", stat="summary", fun="mean") +
+  facet_wrap(~Variable, scales="free") +
+  scale_fill_manual(values=colorPallete) +
+  labs(x="Occupancy", y="Mean", 
+       title="Feature associations with the likelihood of occupancy Level",
+       subtitle="Average population of origin and destination station\nTraining data, July - Oct 2016", 
+       caption="Source: Kaggle")+
+  theme_minimal()+plotTheme+
+  theme(legend.position="none")
+```
+
+### (3) Continuous Variables: Temperature, Relative Humidity, Wind Speed of Origin and Destination Station
+
+The third analysis of continuous variables examines temperature, relative humidity, and wind speed at the origin and destination stations. Although the difference was small, high-occupancy pairs had higher relative humidity compared to low-occupancy pairs, while temperature and wind speed were lower for high-occupancy pairs than for low-occupancy pairs.
+
+```{r contvar2, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, from_wind, to_wind, from_temp, to_temp, from_humid, to_humid) %>%
@@ -1105,13 +1223,11 @@ trains %>%
   theme(legend.position="none")
 ```
 
+### (4) Continuous Variables: Distance from Origin to Destination, Origin to Brussels, Destination to Brussels
 
+The fourth analysis of continuous variables is about the distance from O to D, O or D to Belgium. The distance in this paragraph (3) and the below (4) bearing information were calculated to represent the spatial relationship between O and D in the binomial regression model. For low-occupancy trips, the distance from either O or D to Brussels was longer, while the distance between O and D was shorter.
 
-
-
-### (3) Continuous Variables: Distance from Origin to Destination, Origin to Brussels, Destination to Brussels
-
-```{r}
+```{r contvar3, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels) %>%
@@ -1128,9 +1244,11 @@ trains %>%
   theme(legend.position="none")
 ```
 
-### (4) Categorical Variables: Bearing Angle Direction from Origin to Destination
+### (5) Categorical Variables: Bearing Angle Direction from Origin to Destination
 
-```{r}
+With the bearing angle direction from Origin to Destination data, it is possible to identify which directional routes have a higher distribution of low occupancy. High occupancy had a higher count in all directions, but the difference in count between high and low occupancy was particularly significant in the east, west, and southeast directions.
+
+```{r catvar, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, bearing_from_O_to_D_cat) %>%
@@ -1143,16 +1261,18 @@ trains %>%
   scale_fill_manual(values=colorPallete) +
   labs(x="Occupancy", y="Count", 
        title="Feature associations with the likelihood of low occupancy",
-       subtitle="Vehicle type for IC, L, P, S, and THA\nTraining data, July - Oct 2016", 
+       subtitle="Bearing Angle Direction from Origin to Destination\nTraining data, July - Oct 2016", 
        caption="Source: Kaggle")+
   theme_minimal()+plotTheme+
   theme(legend.position="none")
 ```
 
 
-### (5) Binomial Variables: Event
+### (6) Binomial Variables: Event
 
-```{r}
+As mentioned above in 2.(4), we assigned `event` a value of 1 for weekends and public holidays. The difference in the count between high and low occupancy during weekends and public holidays (`event` == 1) was smaller than on weekdays (`event` == 0). 
+
+```{r bivar, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, event) %>%
@@ -1170,9 +1290,18 @@ trains %>%
   theme_minimal()+plotTheme+
   theme(legend.position="none")
 ```
-### (6) Categorical Variables: Time category
 
-```{r}
+### (7) Categorical Variables: Time category
+
+The time periods were categorized as follows:
+	•	“0600-0900 and 1600-2000” as commute,
+	•	“2000-2400” as evening,
+	•	“0000-0600” as morning,
+	•	“0900-1600” as noon.
+
+For the training data from July to October 2016, it was evident that the count of high occupancy was greater during commute times, whereas low occupancy was more prevalent during the noon period.
+
+```{r catvar2, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, time_cat) %>%
@@ -1180,18 +1309,20 @@ trains %>%
   count(Variable, value, occupancy) %>%
   ggplot(aes(occupancy, n, fill=occupancy)) +
   geom_bar(position="dodge", stat="summary") +
-  ylim(0,650)+
+  ylim(0,1000)+
   facet_wrap(~value, scales="free") +
   scale_fill_manual(values=colorPallete) +
   labs(x="Occupancy", y="Count", 
        title="Feature associations with the likelihood of low occupancy",
-       subtitle="0700-0900 and 1700-1900 commute, 1900-2400 evening, 0000-0500 midnight, 0500-0700 morning, 0900-1700 noon\nTraining data, July - Oct 2016", 
+       subtitle="0600-0900 and 1600-2000 commute, 2000-2400 evening, 0000-0600 morning, 0900-1600 noon\nTraining data, July - Oct 2016", 
        caption="Source: Kaggle")+
   theme_minimal()+plotTheme+
   theme(legend.position="none")
 ```
 
-```{r}
+Additionally, the following plot shows the distribution of low occupancy ratios by time category of each day. The low occupancy rate was higher in the morning of Thursday, Friday, and Saturday, and noon of Monday, Tuesday, and Wednesday. During the commute time, the ratio of low occupancy was low except Saturday.
+
+```{r catvar3, warning = FALSE, message = FALSE}
 train_summary <- trains %>%
   filter(!is.na(occupancy)) %>% 
   group_by(dotw, time_cat) %>%
@@ -1225,9 +1356,11 @@ ggplot(train_summary, aes(x = dotw, y = low_ratio, fill=time_cat)) +
 
 ```
 
-### (7) Categorical VariableS: Vehicle Type
+### (8) Categorical Variables: Vehicle Type
 
-```{r}
+Excluding international routes, there are four train lines in Belgium as IC, L, P, and S. The number of trains on IC lines was the highest, while L lines showed a higher number of low-occupancy routes than of high-occupancy routes.
+
+```{r catvar4, warning = FALSE, message = FALSE}
 trains %>%
   filter(!is.na(occupancy)) %>% 
   select(occupancy, vehicle_type) %>%
@@ -1240,13 +1373,13 @@ trains %>%
   scale_fill_manual(values=colorPallete) +
   labs(x="Occupancy", y="Count", 
        title="Feature associations with the likelihood of low occupancy",
-       subtitle="Vehicle type for IC, L, P, S, and THA\nTraining data, July - Oct 2016", 
+       subtitle="Vehicle type for IC, L, P, and S\nTraining data, July - Oct 2016", 
        caption="Source: Kaggle")+
   theme_minimal()+plotTheme+
   theme(legend.position="none")
 ```
 
-
+The following leaflet map shows the high and low occupancy routes between stations, whose routes have more than three trips in `trains` dataset. The high-occupancy routes are shown in gray, while the low-occupancy routes are shown in red. The map shows that the high-occupancy routes are concentrated in the central area of Belgium, while the low-occupancy routes are scattered throughout the country. We could verify the names of O and D by hovering the mouse over each route.
 
 ```{r station_map_routes_load, warning = FALSE, message = FALSE, results = "hide"}
 threshold <- 3 # Moderate threshold capturing higher-demand OD pairs
@@ -1346,6 +1479,12 @@ leaflet() %>%
 
 # 4. Test of Logistic Regression Model (Original Model)
 
+## Estimation of the Original Model
+
+In Chapters 4 and 5, the training data is split into a 65:35 ratio to build a binomial regression model and validate its accuracy. The dependent variable for this model is, of course, `occupancy`. When using its numeric form, `occupancy_numeric` is used, with `low` set to `1` and `high` set to `0`. 
+
+In Chapter 4, the model is implemented using only the existing variables as independent variables from the dataset: `date_numeric`, `time_numeric`, `dotw`, and occupancy_numeric, without incorporating any external variables. In Chapter 5, additional independent variables derived from internal variables calculated in Chapter 3, as well as external variables, are added to the model to enhance its accuracy.
+
 ```{r train_original1, warning = FALSE, message = FALSE}
 trains <- trains %>%
   mutate(date_numeric = as.numeric(as.Date(date))) %>%
@@ -1357,8 +1496,12 @@ trains <- trains %>%
   ))
 
 # Split trains into trains_train and trains_test  
-trains_train <- trains %>% filter(!is.na(occupancy)) 
-trains_test <- trains %>% filter(is.na(occupancy))
+trains_train <- trains %>% filter(!is.na(occupancy)) %>%
+  select(-n_high, -n_low, -stopping_station_ids) %>%
+  filter(complete.cases(.))
+trains_test <- trains %>% filter(is.na(occupancy)) %>%
+  select(-n_high, -n_low, -stopping_station_ids)  %>%
+  filter(across(-c(occupancy, occupancy_original, occupancy_numeric), ~ !is.na(.)))
 
 # Split trains_train into trains_trainTrain and trains_trainTest
 set.seed(3456)
@@ -1372,8 +1515,12 @@ reg <- glm(occupancy_numeric ~ ., data =
                     trains_trainTrain %>% dplyr::select(date_numeric, time_numeric, dotw, occupancy_numeric),
                 family = "binomial"(link = "logit"))
 
-a<-summary(reg) # / AIC: 1,987
+a<-summary(reg) # / AIC: 1,726
 ```
+
+## Goodness of Fit of the Original Model
+
+The AIC value of original model is 1,726, and the Area Under Curve (AUC) value is 0.635. 
 
 ```{r train_original2, warning = FALSE, message = FALSE}
 pseudo_r2 <- pR2(reg)
@@ -1381,6 +1528,8 @@ pseudo_r2_df <- as.data.frame(t(pseudo_r2))
 kable(pseudo_r2_df, "html", caption = "Pseudo-R² Values for `train logistic model`") %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
+
+The following distribution visualizes predicted probabilities (x-axis) for `low` (recorded as 1) and `high` occupancy (recorded as 0). We examined that the hump of `low` is located to the a bit left of the the hump for `high`, which may be predicted. In addition, the higher value of probability density for `high` indicates that the model predicts high occupancy more accurately than low occupancy.
 
 ```{r train_original3, warning = FALSE, message = FALSE}
 testProbs <- data.frame(Outcome = as.numeric(trains_trainTest$occupancy_numeric),
@@ -1406,28 +1555,36 @@ ggplot() +
   geom_roc(data= testProbs, aes(d = as.numeric(Outcome), m = Probs), n.cuts = 50, labels = FALSE) +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve ",
-       subtitle = "trains_trainTest that is split of trains_train") +
+  labs(title = "ROC Curve (original model)",
+       subtitle = "trains_trainTest that is split of trains_train, AUC = 0.635") +
   theme(legend.position = "bottom")+plotTheme
+
+testProbs_org <- testProbs
 ```
 
-```{r}
-pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.6277
+```{r aucoriginal, warning = FALSE, message = FALSE}
+pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.635
 ```
-
-## Cost Benefit Analysis
 
 # 5. Test of Logistic Regression Model (Improved Model)
+
+## Estimation of the Improved Model
+
+In Chapter 5, additional independent variables derived from internal variables calculated in Chapter 3, as well as external variables, are added to the model to improve its accuracy. Finally, Chapter 5 also includes a generalization validation of the improved model.
 
 ```{r train_improved1, warning = FALSE, message = FALSE}
 reg <- glm(occupancy_numeric ~ ., data = 
                     trains_trainTrain %>% dplyr::select(date_numeric, time_numeric, dotw, occupancy_numeric, 
                                                         
-     from_avg_stop_times, from_pop,  from_avg_stop_times, to_avg_stop_times, to_pop, from_temp, from_wind, from_humid, to_temp, to_wind, to_humid, event, nr_of_stops, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels, time_cat, vehicle_type, bearing_from_O_to_D_cat),
+     from_avg_stop_times, from_pop, to_avg_stop_times, to_pop, from_temp, from_wind, from_humid, to_temp, to_wind, to_humid, event, nr_of_stops, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels, time_cat, vehicle_type, bearing_from_O_to_D_cat),
                 family = "binomial"(link = "logit"))
 
-b<-summary(reg) # / AIC: 1,651
+b<-summary(reg) # / AIC: 1,679
 ```
+
+## Goodness of Fit of the Improved Model
+
+The AIC value of the improved model is 1,679, which shows an improvement compared to the original model (AIC = 1,726). Similarly, the Area Under the ROC Curve (AUC) value has increaased from 0.635 in the original model to 0.689 in the original model.
 
 ```{r train_improved2, warning = FALSE, message = FALSE}
 pseudo_r2 <- pR2(reg)
@@ -1439,7 +1596,7 @@ kable(pseudo_r2_df, "html", caption = "Pseudo-R² Values for `train logistic mod
 ```{r train_improved3, warning = FALSE, message = FALSE}
 testProbs <- data.frame(Outcome = (trains_trainTest$occupancy_numeric),
                         Probs = predict(reg, trains_trainTest, type= "response"))
-
+#testProbs$Outcome <- factor(testProbs$Outcome, levels = c(0, 1), labels = c("high", "low"))
 
 ggplot(testProbs, aes(x = Probs, fill = as.factor(Outcome))) + 
   geom_density() +
@@ -1452,48 +1609,472 @@ ggplot(testProbs, aes(x = Probs, fill = as.factor(Outcome))) +
         legend.position = "none")+plotTheme
 ```
 
-```{r train_improved4, warning = FALSE, message = FALSE}
+```{r ROC_improved, warning = FALSE, message = FALSE}
 testProbs <- testProbs %>%
-  mutate(predOutcome = (ifelse(Probs >= 0.45,1,0))) # Threshold = 0.45
-testProbs %>%
-  filter( !is.na(predOutcome)) %>% 
-  summarize(observedLow=sum(Outcome), predictedLow=sum(predOutcome)) %>%
+  mutate(predOutcome = (ifelse(Probs >= 0.5,1,0))) # Threshold = 0.5
 
-  gather(Variable, Value) %>%
-  ggplot(aes(x = Variable, y = Value))+
-  geom_bar(position="dodge", stat="identity")
 ```
 
-```{r ROC_improved, warning = FALSE, message = FALSE}
+We could examine the improved ROC curve (black line) is more round and close to useful fit than the original ROC (gray line).
+
+```{r ROC_improved22, warning = FALSE, message = FALSE}
 ggplot() +
   geom_roc(data= testProbs, aes(d = as.numeric(Outcome), m = Probs), n.cuts = 50, labels = FALSE) +
+  geom_roc(data= testProbs_org, aes(d = as.numeric(Outcome), m = Probs), n.cuts = 50, labels = FALSE, alpha = 0.5 , color="#a1b7b8") +
   style_roc(theme = theme_grey) +
-  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve ",
-       subtitle = "trains_trainTest that is split of trains_train") +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = '#a1b7b8') +
+  labs(title = "ROC Curve (improved model)",
+       subtitle = "trains_trainTest that is split of trains_train, AUC = 0.689") +
   theme(legend.position = "bottom")+plotTheme
 ```
 
-```{r}
-pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.6764
+```{r aucimproved, warning = FALSE, message = FALSE}
+pROC::auc(testProbs$Outcome, testProbs$Probs) # AUC = 0.662
 ```
 
-## Cost Benefit Analysis
+## Cross-validation
+
+The purpose of cross-validation is to train a predictive model that can predict the outcome of new data. We run 100 k-folds cross-validation to evaluate the model's performance. The results show that the model has an average ROC of 0.667, which is consistent with the AUC value of 0.689 obtained from the test data. Sensitivity and specificity are 0.819 and 0.436, respectively. In the plots, the dotted lines represent across-fold mean.
+
+```{r cv1, warning = FALSE, message = FALSE}
+cv_control <- trainControl(
+  method = "cv",         # Cross-validation
+  number = 100,           # 100-fold CV
+  summaryFunction = twoClassSummary,  # Use ROC as evaluation metric
+  classProbs = TRUE      # Enable class probabilities
+)
+
+trains_train <- trains_train %>%
+  mutate(occupancy_numeric = as.factor(occupancy_numeric))  # Convert to factor
+
+# Re-run the train function with a corrected formula
+set.seed(3456)
+cv_model <- train(
+  occupancy ~ ., data= trains_train %>%
+    dplyr::select(date_numeric, time_numeric, dotw, occupancy, 
+                                                        
+     from_avg_stop_times, from_pop,  to_avg_stop_times, to_pop, from_temp, from_wind, from_humid, to_temp, to_wind, to_humid, event, nr_of_stops, dist_from_O_to_D, dist_from_O_to_Brussels, dist_from_D_to_Brussels, time_cat, vehicle_type, bearing_from_O_to_D_cat)
+    ,  # Use trains_train⁠ for CV
+
+  method = "glm",
+  family = "binomial",
+  metric = "ROC",
+  trControl = cv_control
+)
+
+# Check results
+print(cv_model)
+```
+
+```{r cv2, warning = FALSE, message = FALSE}
+dplyr::select(cv_model$resample, -Resample) %>%
+  gather(metric, value) %>%
+  left_join(gather(cv_model$results[2:4], metric, mean)) %>%
+  ggplot(aes(value)) +
+    geom_histogram(bins = 35, fill = "#a1b7b8", alpha = 0.7) +
+    facet_wrap(~metric)+
+    geom_vline(aes(xintercept = mean), color="#df543b",
+               linetype=3, size=1.5)+
+    scale_x_continuous(limits = c(0,1))+
+    theme_minimal()+plotTheme+
+    labs(
+      title = "Distribution of Cross-Validated Metrics",
+      subtitle = "Training Data, July - Oct 2016",
+      x = "Goodness of Fit",
+      y = "Count"
+    ) 
+```
+
+## Confusion Matrix
+
+The confusion matrix shows the model's performance in predicting low and high occupancy. The Sensitivity of the model is the proportion of actual positives (1’s) that were predicted to be positive. The model has a true positive rate (sensitivity) of 0.431, which means the probability that we predicted low and it actually had low-occupancy is 0.431. The Specificity of the model is the proportion of actual negatives (0’s) that were predicted to be negatives. The model has a true negative rate (specificity) of 0.820, which means the probability that we predicted high and it actually had high-occupancy is 0.820.
+
+In our model, a critical scenario is when low occupancy is predicted, but the train actually has high occupancy—a False Positive case. If occupancy of a train was classified as low but the train actually had high occupancy, that situation could lead to passenger inconvenience, resulting in increased complaints about railway services and, in severe cases, potentially causing safety incidents. For this reason, the optimal threshold is set higher because we cannot be lenient with the model, as wrong prediction especially low occupancy can lead to customer dissatisfaction. 
+
+In the next chapter, we will conduct a cost-benefit analysis, but the threshold will not be determined solely based on its results. We will also consider the model’s ability to maintain a low False Positive rate.
+
+```{r cvmatrix, warning = FALSE, message = FALSE}
+# Ensure actual and predicted outcomes are factors
+actual <- factor(testProbs$Outcome, levels = c(1, 0), labels = c("low", "high"))
+predicted <- factor(testProbs$predOutcome, levels = c(1, 0), labels = c("low", "high"))
+
+# Generate the confusion matrix
+confusion_ori <- confusionMatrix(predicted, actual, positive = "low")
+print(confusion_ori)
+```
+
+```{r cba4, warning = FALSE, message = FALSE}
+# Create a confusion matrix heatmap
+confusion_table <- as.data.frame(as.table(confusion_ori$table))
+ggplot(data = confusion_table, aes(Reference, Prediction)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq), vjust = 0.5) +
+  scale_fill_gradient(low = "orange", high = "white") +
+  labs(title = "Confusion Matrix (threshold = 0.5)", x = "Actual Class", y = "Predicted Class") +
+  theme_minimal()+plotTheme
+```
+
+# 6. Cost-benefit Analysis and Optimal Threshold
+
+We use optimal threshold and cost-benefit analysis to implement our model and see how useful the model can be.
+We choose optimal threshold based on accuracy and weighted errors and apply them to the cost-benefit analysis focusing on low-occupancy train.
+
+## CBA Analysis All Threshold and Maximum Revenue
+
+For cost-benefit analysis, we use maintenance cost, labor cost, energy cost, and ticket revenue.
+The formula is:
+
+-   True Positive (low-low): total saving per trip by using maintenance cost, labor cost, and energy cost as saving and subtracting them with the possible ticket revenue.
+
+-   False Positive (high-low): revenue per trip which is based on the possible ticket sold.
+
+-   For True Positive and False Positive, we use 0 because we maintain the status quo and focus more on the low occupancy routes.
+
+```{r cba5, warning = FALSE, message = FALSE}
+# Define constants
+maintenance_cost_per_km <- 39600 / 365  # Daily maintenance cost per km
+labor_cost_per_hour <- 47.10  # in euros
+energy_cost_per_km <- 2.93  # in euros
+train_capacity <- 500  # number of passengers
+avg_ticket_price <- 10  # in euros
+avg_trip_distance <- 80  # in kilometers
+avg_trip_duration <- 1.22  # in hours
+
+# Calculate savings per trip
+maintenance_savings <- maintenance_cost_per_km * avg_trip_distance
+labor_savings <- labor_cost_per_hour * avg_trip_duration
+energy_savings <- energy_cost_per_km * avg_trip_distance
+total_savings_per_trip <- maintenance_savings + labor_savings + energy_savings
+
+# Calculate revenue per trip
+revenue_per_trip <- avg_ticket_price * train_capacity
+
+# Define thresholds to test
+thresholds <- seq(0.01, 1.0, by = 0.01)
+
+# Initialize a dataframe to store results
+threshold_results <- data.frame(
+  Threshold = numeric(),
+  Total_Revenue = numeric()
+)
+
+# Loop through thresholds
+for (threshold in thresholds) {
+  # Apply threshold
+  testProbs_temp <- testProbs %>%
+    filter(!is.na(Probs) & !is.na(Outcome)) %>%  # Remove NA values
+    mutate(predOutcome = ifelse(Probs >= threshold, 1, 0))  # Apply threshold
+  
+  # Calculate cost-benefit for the current threshold
+  cost_benefit_table <- testProbs_temp %>%
+    count(predOutcome, Outcome) %>%
+    summarize(
+      True_Positive = sum(n[predOutcome == 1 & Outcome == 1]),
+      True_Negative = sum(n[predOutcome == 0 & Outcome == 0]),
+      False_Negative = sum(n[predOutcome == 0 & Outcome == 1]),
+      False_Positive = sum(n[predOutcome == 1 & Outcome == 0])
+    ) %>%
+    gather(Variable, Count) %>%
+    mutate(
+      Revenue = case_when(
+        Variable == "True_Positive" ~ Count * total_savings_per_trip,
+        Variable == "True_Negative" ~ Count * 0,
+        Variable == "False_Positive" ~ -Count * revenue_per_trip,
+        Variable == "False_Negative" ~ -Count * 0,
+        TRUE ~ 0
+      )
+    )
+  
+  # Calculate total revenue for the current threshold
+  total_revenue <- sum(cost_benefit_table$Revenue, na.rm = TRUE)
+  
+  # Store the results
+  threshold_results <- rbind(
+    threshold_results,
+    data.frame(Threshold = threshold, Total_Revenue = total_revenue)
+  )
+}
+
+# Find the optimal threshold
+optimal_threshold <- threshold_results %>%
+  filter(Total_Revenue == max(Total_Revenue)) %>%
+  slice(1)
+
+# Display the optimal threshold
+print("Optimal Threshold Based on Revenue:")
+print(optimal_threshold)
+
+# Plot revenue vs. thresholds
+
+ggplot(threshold_results, aes(x = Threshold, y = Total_Revenue)) +
+  geom_line() +
+  geom_point(data = optimal_threshold, aes(x = Threshold, y = Total_Revenue), color = "red", size = 3) +
+  labs(
+    title = "Total Revenue by Threshold",
+    x = "Threshold",
+    y = "Total Revenue (euros)"
+  ) +
+  theme_minimal()+plotTheme
+```
+
+The graph shows the possible revenue on all threshold showing at some points, it will be a loss rather than a revenue. The optimal threshold shown by the red dot is chosen by maximizing the total revenue and in this case, we cannot use because public transportation including train is part of public facilities that has to be accesible for all. Therefore, maximizing revenue will only result in some constant low occupancy to be completely removed from the route which is not the right policy for the public.
+
+## Optimal Threshold on Accuracy and Weighted Errors
+
+We choose threshold based on our use-case that focuses on low occupancy. Because it is dangerous to predict wrong low occupancy as it leads ,  We focus on accuracy and weighted errors and then using coefficient to weight them. 
+The formula is as followed:
+
+•⁠  ⁠We use F1 which is 2 * (Precision * Recall) / (Precision + Recall) for accuracy because it balances sensitivity and specificity
+
+•⁠  ⁠We weigh the wrong predictions (FP and FN) with the FP weighs more than FN as the weighted error. Because, we care more about making sure the low occupancy error does not happen.
+
+•⁠  ⁠We comprise both variables by subtracting F1 by weighted error.
+
+```{r cba6, warning = FALSE, message = FALSE}
+# Define thresholds to evaluate
+thresholds <- seq(0, 1, by = 0.01)
+
+# Initialize a data frame to store results
+results <- data.frame(
+  Threshold = numeric(),
+  Accuracy = numeric(),
+  Precision = numeric(),
+  Recall = numeric(),
+  F1 = numeric(),
+  FN = numeric(),
+  FP = numeric()
+)
+
+# Loop through thresholds
+for (t in thresholds) {
+  # Generate predictions based on the threshold
+  predicted <- ifelse(testProbs$Probs >= t, "low", "high")
+  
+  # Convert predictions and actual values to factors
+  predicted <- factor(predicted, levels = c("low", "high"))
+  actual <- factor(testProbs$Outcome, levels = c(1, 0), labels = c("low", "high"))
+  
+  # Confusion matrix
+  cm <- confusionMatrix(predicted, actual, positive = "low")
+  
+  # Extract metrics
+  Accuracy <- cm$overall["Accuracy"]
+  Precision <- cm$byClass["Precision"]
+  Recall <- cm$byClass["Sensitivity"]
+  F1 <- cm$byClass["F1"]
+  FN <- cm$table[2, 1]  # False Negatives
+  FP <- cm$table[1, 2]  # False Positives
+  
+  # Store results
+  results <- rbind(
+    results,
+    data.frame(
+      Threshold = t,
+      Accuracy = Accuracy,
+      Precision = Precision,
+      Recall = Recall,
+      F1 = F1,
+      FN = FN,
+      FP = FP
+    )
+  )
+}
+```
+
+
+```{r cba7, warning = FALSE, message = FALSE}
+# Define weights for False Positives (FP) and False Negatives (FN)
+w1 <- 0.75 #3  # Weight for FP
+w2 <- 0.25 #1  # Weight for FN
+
+alpha <- 100  # Weight for F1
+beta <- 1 # Weight for Weighted Error (scaled to match F1)
+
+# Step 1: Calculate Additional Metrics
+results <- results %>%
+  mutate(
+    F1 = 2 * (Precision * Recall) / (Precision + Recall),  # F1 Score (recall = sensitivity)
+    WeightedError = w1 * FP + w2 * FN,                     # Weighted Error
+    CompromiseMetric = alpha * F1 - beta * WeightedError        # Composite Metric
+  )
+
+ 
+ # Find the optimal threshold based on the Compromise Metric
+ optimal_compromise <- results[which.max(results$CompromiseMetric), ]
+ 
+ # Print the optimal threshold
+ print("Optimal Threshold Based on Compromise Metric:")
+ print(optimal_compromise)
+ 
+
+ 
+```
+
+The optimal threshold is 0.54, which is determined by maximizing the compromise metric. The compromise metric is calculated by subtracting the weighted error from the F1 score. The F1 score is a measure of a test's accuracy, while the weighted error is a measure of the model's ability to predict low occupancy. The compromise metric balances the two metrics, ensuring that the model is accurate while minimizing the risk of predicting low occupancy.
+
+```{r cba8, warning = FALSE, message = FALSE}
+threshold <- 0.54
+testProbs$predOutcome <- ifelse(testProbs$Probs >= threshold, "low", "high")
+
+# Convert to factors for confusionMatrix
+testProbs$predOutcome <- factor(testProbs$predOutcome, levels = c("low", "high"))
+testProbs$Outcome <- factor(ifelse(testProbs$Outcome == 1, "low", "high"), levels = c("low", "high"))
+
+# Generate the confusion matrix
+cm_opt <- confusionMatrix(testProbs$predOutcome, testProbs$Outcome, positive = "low")
+
+# Print the confusion matrix
+print(cm_opt)
+
+```
+
+```{r cba9, warning = FALSE, message = FALSE}
+# Create the confusion matrix heatmap
+cm_opt_table <- as.data.frame(as.table(cm_opt$table))
+ggplot(data = cm_opt_table, aes(x = Reference, y = Prediction)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq), vjust = 0.5) +
+  scale_fill_gradient(low = "orange", high = "white") +
+  labs(
+    title = paste("Confusion Matrix for Threshold", threshold),
+    x = "Actual Class",
+    y = "Predicted Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+```
+
+## Cost Benefit Analysis on Optimal Threshold
+
+This cost benefit analysis uses optimal threshold based on accuracy and weighted errors therefore the results are based on what we aim the model for, minimalizing errors for low occupancy. The cost-benefit analysis shows quite a big revenue despite some loss because of the errors.
+
+```{r cba10, warning = FALSE, message = FALSE}
+# Define constants
+maintenance_cost_per_km <- 39600 / 365  # Daily maintenance cost per km
+labor_cost_per_hour <- 47.10  # in euros
+energy_cost_per_km <- 2.93  # in euros
+train_capacity <- 500  # number of passengers
+avg_ticket_price <- 10  # in euros
+avg_trip_distance <- 80  # in kilometers
+avg_trip_duration <- 1.22  # in hours
+
+# Calculate savings per trip
+maintenance_savings <- maintenance_cost_per_km * avg_trip_distance
+labor_savings <- labor_cost_per_hour * avg_trip_duration
+energy_savings <- energy_cost_per_km * avg_trip_distance
+total_savings_per_trip <- maintenance_savings + labor_savings + energy_savings
+
+# Calculate revenue per trip
+revenue_per_trip <- avg_ticket_price * train_capacity
+
+# Apply the optimal threshold
+# Ensure Outcome and predOutcome columns are consistent
+testProbs <- testProbs %>%
+  mutate(
+    Outcome = factor(Outcome, levels = c("low", "high")),
+    predOutcome = factor(ifelse(Probs >= 0.54, "low", "high"), levels = c("low", "high"))
+  )
+
+# Count confusion matrix components
+confusion_counts <- testProbs %>%
+  mutate(
+    True_Positive = ifelse(predOutcome == "low" & Outcome == "low", 1, 0),
+    True_Negative = ifelse(predOutcome == "high" & Outcome == "high", 1, 0),
+    False_Negative = ifelse(predOutcome == "high" & Outcome == "low", 1, 0),
+    False_Positive = ifelse(predOutcome == "low" & Outcome == "high", 1, 0)
+  ) %>%
+  summarize(
+    True_Positive = sum(True_Positive),
+    True_Negative = sum(True_Negative),
+    False_Negative = sum(False_Negative),
+    False_Positive = sum(False_Positive)
+  )
+
+# Create a Cost-Benefit Analysis table
+cost_benefit_table <- confusion_counts %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Count") %>%
+  mutate(
+    Revenue = case_when(
+      Variable == "True_Positive" ~ Count * total_savings_per_trip,
+      Variable == "True_Negative" ~ Count * 0,
+      Variable == "False_Positive" ~ -Count * revenue_per_trip,
+      Variable == "False_Negative" ~ -Count * 0,
+      TRUE ~ 0
+    ),
+    Description = case_when(
+      Variable == "True_Positive" ~ "Correctly predicted low occupancy (low-low)",
+      Variable == "True_Negative" ~ "Correctly predicted high occupancy (high-high)",
+      Variable == "False_Positive" ~ "Incorrectly predicted low occupancy (low-high)",
+      Variable == "False_Negative" ~ "Incorrectly predicted high occupancy (high-low)"
+    )
+  )
+
+# Display the Cost-Benefit Table
+kable(cost_benefit_table, caption = "Cost-Benefit Table (Optimal Threshold 0.54)") %>%
+  kable_styling()
+
+# Calculate and display the total revenue
+total_revenue <- sum(cost_benefit_table$Revenue)
+print(paste("Total Revenue:", round(total_revenue, 2), "euros"))
+
+```
 
 # 6. Prediction
 
-# 7. Conclusion and Discussion
+With the occupancy threshold 0.54, the result of prediction for test data (`trains_test`) is as following plot.
 
-## Conclusion
+```{r predictgraph, warning = FALSE, message = FALSE}
+trains_test <- trains_test %>%
+  mutate(occupancy_prob = predict(reg, trains_test, type = "response")) 
+  
+trains_test <- trains_test %>%
+  mutate(occupancy = ifelse(occupancy_prob >= 0.54, "low", "high")) %>%
+  mutate(occupancy_numeric = ifelse(occupancy_prob >= 0.54, 1, 0)) 
+```
 
-## Discussion
+```{r predictgraph2, warning = FALSE, message = FALSE}
+trains_test %>%
+  select(-occupancy_prob) %>%
+  rbind(trains_train) %>%
+  group_by(date = date(datetime)) %>%
+  count(occupancy) %>%
+  mutate(period = ifelse(date >= as.Date("2016-10-30"), "test", "train")) %>% 
+  ggplot(aes(x = date, y = n, color = occupancy, linetype = period)) + # Use period to control linetype or style
+  geom_line(aes(color =occupancy)) + 
+   scale_color_manual(values = c("low" = "#df543b", "high" = "#a1b7b8")) +
+   scale_linetype_manual(values = c("test" = "dashed", "train" = "solid")) +
+    geom_vline(aes(xintercept = as.Date("2016-10-30")), color="#00f",
+               linetype=3, size=1)+
+  labs(
+    title = "Train Occupancy Trend by Date",
+    subtitle = "Training and Test data, July - Dec 2016",
+    x = "Date",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  plotTheme +
+  theme(legend.position = "bottom")
+```
+# 7. Conclusion
 
-## References
+In conclusion, our model is better at minimizing errors while still balancing the accuracy. This is important, as our use case focuses more on optimizing low-occupancy routes. Despite the model is better at predicting high occupancy, our optimal threshold balances that. Also, the cost-benefit analysis helps emphasizing the benefit gained from using the models through total revenue.
 
-[1] https://github.com/iRail/iRail/blob/master/public/terms/index.html
+In the future, this model can still be improved by having more independent variables that emphasize on low occupancy routes, like fares, amount of other transportation modes nearby, amount of jobs nearby, etc. Also, having more information about the trains like clean fare zone, ticket prices, discount information, more detailed financial annual report can help improve not only the model but also the cost-benefit analysis formula.
+
+# Video Link
+
+https://drive.google.com/file/d/1J6a2opfTWvWvpV3bmN6VuK7iRVloMkup/view?usp=sharing
+ 
+# References
 
 [1] <https://www.rdocumentation.org/packages/riem/versions/0.3.2/topics/riem_measures> 
 
-[2] <https://www.belgiantrain.be/en/support/faq/faq-routes-schedules/faq-train-types> 
+[2] https://github.com/iRail/iRail/blob/master/public/terms/index.html
 
-[3] <https://www.belgiantrain.be/en/travel-info/train-network-travel-info/calendar-adaptations>
+[3] <https://www.belgiantrain.be/en/support/faq/faq-routes-schedules/faq-train-types> 
+
+[4] <https://www.belgiantrain.be/en/travel-info/train-network-travel-info/calendar-adaptations>
